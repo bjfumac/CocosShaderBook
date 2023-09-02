@@ -42,9 +42,10 @@ CCProgram vs %{
     //顶点变换到世界坐标
     v_worldPos = (cc_matWorld * vertex).xyz;
 
+    //计算顶点->相机的方向
     v_worldViewDir = normalize(CCWorldSpaceViewDir(v_worldPos));
 
-    //计算逆向光路，注意v_worldViewDir和v_worldNormal必须是归一化的
+    //计算逆向光路（反射），注意v_worldViewDir和v_worldNormal必须是归一化的
     v_worldRefl = reflect(-v_worldViewDir, v_worldNormal);
 
     return v_pos;
