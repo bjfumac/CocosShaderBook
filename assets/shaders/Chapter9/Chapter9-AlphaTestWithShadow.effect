@@ -1,0 +1,196 @@
+// Effect Syntax Guide: https://docs.cocos.com/creator/manual/zh/shader/index.html
+// 两个pass的贴图和cutoff属性请手动保持一致
+
+CCEffect %{
+  techniques:
+  - name: transparent
+    passes:
+    - vert: vs:vert
+      frag: fs:frag
+      properties: &props
+        _Color:      { value: [1, 1, 1, 1], editor: { type: color } }
+        _MainTex:    { value: white }
+        _MainTex_ST:   { value: [1, 1, 0, 0] }
+        _Cutoff:    { value: 0.0, editor: { slide: true, range: [0.0, 1.0], step: 0.1, type: float } }
+    #面板中勾选Shadow Casting Mode后，挂载这个pass可以实现阴影计算
+    - &shadow-caster
+      vert: shadow-caster-vs:vert
+      frag: shadow-caster-fs:frag
+      phase: shadow-caster
+      rasterizerState:
+        cullMode: front #正面为光源可打到的区域，所以剔除掉，只留下光线打不到的区域
+      properties: &props
+        _MainTex:    { value: white }
+        _MainTex_ST:   { value: [1, 1, 0, 0] }
+        _Cutoff:    { value: 0.0, editor: { slide: true, range: [0.0, 1.0], step: 0.1, type: float } }
+}%
+
+CCProgram vs %{
+  precision highp float;
+  #include <builtin/uniforms/cc-global>
+  #include <builtin/uniforms/cc-local>
+  #include <../cc-cg>
+  in vec3 a_position;
+  in vec3 a_normal;
+  in vec2 a_texCoord;
+
+  out vec4 v_pos;
+  out vec3 v_worldNormal;
+  out vec3 v_worldPos;
+  out vec2 v_uv;
+
+  uniform ConstantV {
+    vec4 _MainTex_ST;
+  };
+
+  vec4 vert () {
+    //顶点坐标变换到投影空间
+    vec4 vertex = vec4(a_position, 1.0);
+    v_pos = CCObjectToClipPos(vertex);
+   
+    //法线变换到世界空间
+    vec3 normal = a_normal;
+    v_worldNormal =  mat3(cc_matWorldIT) * normal;
+
+    //顶点变换到世界坐标
+    v_worldPos = (cc_matWorld * vertex).xyz;
+
+    //uv坐标处理
+    v_uv = TRANSFORM_TEX(a_texCoord, _MainTex_ST);
+    return v_pos;
+  }
+}%
+
+
+CCProgram fs %{
+  precision highp float;
+  #include <legacy/output>
+  #include <builtin/uniforms/cc-global>
+  #include <../cc-cg>
+
+  in vec4 v_pos;
+  in vec3 v_worldNormal;
+  in vec3 v_worldPos;
+  in vec2 v_uv;
+
+  uniform ConstantF {
+    vec4 _Color;
+    float _Cutoff;
+  };
+  uniform sampler2D _MainTex;
+
+  vec4 frag () {
+    //获取世界空间下的法线
+    vec3 worldNormal =  normalize(v_worldNormal);
+    //获取世界空间下的平行光方向
+    vec4 worldSpaceLightPos0 = vec4(-cc_mainLitDir.xyz, cc_mainLitDir.w);
+    vec3 worldLightDir = normalize(CCWorldSpaceLightDir(worldSpaceLightPos0, v_worldPos));
+    //从贴图获取反照率
+    vec4 texColor = texture(_MainTex, v_uv);
+    //alpha测试
+    doClip(texColor.a - _Cutoff);
+    vec3 albedo = texColor.rgb * _Color.rgb;
+    //获取环境光
+    vec3 ambient = cc_ambientSky.xyz * albedo;
+    //计算漫反射
+    vec3 diffuse = cc_mainLitColor.rgb * albedo * max(0.0, dot(worldNormal, worldLightDir));
+    
+    return CCFragOutput(vec4(ambient + diffuse, 1.0));
+  }
+}%
+
+CCProgram shadow-caster-vs %{
+  precision highp float;
+  #include <builtin/uniforms/cc-global>
+  #include <builtin/uniforms/cc-local>
+  #include <legacy/shadow-map-base>
+  #include <../cc-cg>
+  
+  in vec3 a_position;
+  in vec3 a_normal;
+  in vec2 a_texCoord;
+  #if CC_RECEIVE_SHADOW
+    in vec4 a_localShadowBiasAndProbeId;
+  #endif
+
+  out highp vec4 v_localPos;
+  out vec3 v_worldPos;
+  out vec4 v_normal;
+  out highp vec2 v_clip_depth;
+  out highp vec4 v_clipPos;
+  out mediump vec4 v_shadowBiasAndProbeId;
+  out vec2 v_uv;
+
+  uniform ConstantV {
+    vec4 _MainTex_ST;
+  };
+
+  vec4 vert()
+  {
+    vec4 vertex = vec4(a_position, 1.0);
+    v_localPos = vertex;
+    //计算顶点的世界空间坐标
+    v_worldPos = (cc_matWorld * vertex).xyz;
+    //计算法线的世界空间坐标
+    v_normal = normalize((cc_matWorldIT * vec4(a_normal, 0.0)));
+    //计算灯光投影下的顶点坐标
+    v_clipPos = cc_matLightViewProj * vec4(v_worldPos.xyz, 1.0);
+    //预留的阴影接收器代码
+    #if CC_RECEIVE_SHADOW
+      v_shadowBiasAndProbeId.xy = a_localShadowBiasAndProbeId.xy;
+    #endif
+    //uv坐标处理
+    v_uv = TRANSFORM_TEX(a_texCoord, _MainTex_ST);
+    //输出灯光投影空间的深度信息，并保持其齐次坐标属性（带着w）。
+    v_clip_depth = v_clipPos.zw;
+    //输出灯光投影空间的顶点坐标
+    return v_clipPos;
+  }
+  
+  
+}%
+
+
+CCProgram shadow-caster-fs %{
+  precision highp float;
+  #if CC_SHADOWMAP_USE_LINEAR_DEPTH
+    #include <builtin/functionalities/shadow-map>
+  #endif
+  #include <builtin/uniforms/cc-shadow>
+  #include <../cc-cg>
+  
+  in highp vec2 v_clip_depth;
+  in vec3 v_worldPos;
+  in vec2 v_uv;
+
+  uniform ConstantF {
+    float _Cutoff;
+  };
+  uniform sampler2D _MainTex;
+
+  vec4 frag () {
+    //从贴图获取反照率
+    vec4 texColor = texture(_MainTex, v_uv);
+    //alpha测试
+    doClip(texColor.a - _Cutoff);
+
+    vec4 depthColor;
+    //把投影坐标中的z变换到NDC(Normalized Device Coordinate)坐标中，即z/w，范围[0, 1]
+    highp float clipDepth = v_clip_depth.x / v_clip_depth.y * 0.5 + 0.5;
+    //阴影图采用线性深度
+    #if CC_SHADOWMAP_USE_LINEAR_DEPTH
+      //如果是聚光灯采用这个算法
+      if (cc_shadowLPNNInfo.x == 2.0) {
+        clipDepth = CCGetLinearDepth(v_worldPos.xyz);
+      }
+    #endif
+    //根据阴影图格式选择像素解析算法
+    #if CC_SHADOWMAP_FORMAT == SHADOWMAP_FORMAT_RGBA8
+      depthColor = packDepthToRGBA(clipDepth);
+    #else
+      depthColor = vec4(clipDepth, 1.0, 1.0, 1.0);
+    #endif
+    return depthColor;
+  }
+
+}%

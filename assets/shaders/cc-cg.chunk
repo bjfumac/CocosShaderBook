@@ -1,0 +1,77 @@
+#ifndef USING_DIRECTIONAL_LIGHT
+#if DIRECTIONAL_COOKIE || DIRECTIONAL
+#define USING_DIRECTIONAL_LIGHT
+#endif
+#endif
+
+#if DIRECTIONAL || DIRECTIONAL_COOKIE || POINT || SPOT || POINT_NOATT || POINT_COOKIE
+#define USING_LIGHT_MULTI_COMPILE
+#endif
+
+#define saturate(a) clamp(a, 0.0, 1.0)
+#define TRANSFORM_TEX(tex,nameST) (tex.xy * nameST.xy + nameST.zw)
+
+vec3 CCObjectToWorldNormal(vec3 norm){
+  return normalize(mat3(cc_matWorldIT) * norm);
+}
+
+vec3 CCObjectToWorldDir(vec3 dir){
+  return normalize(mat3(cc_matWorld) * dir);
+}
+
+vec3 CCWorldSpaceLightDir(vec4 worldLightPos, vec3 worldPos){
+  #ifndef USING_LIGHT_MULTI_COMPILE
+    return worldLightPos.xyz - worldPos * worldLightPos.w;
+  #else
+    #ifndef USING_DIRECTIONAL_LIGHT
+    return worldLightPos.xyz - worldPos;
+    #else
+    return worldLightPos.xyz;
+    #endif
+  #endif
+}
+
+vec3 CCWorldSpaceViewDir(vec3 worldPos){
+  return cc_cameraPos.xyz - worldPos;
+}
+
+vec3 WorldSpaceViewDir(vec4 localPos){
+  vec3 worldPos = (cc_matWorld * localPos).xyz;
+  return CCWorldSpaceViewDir(worldPos);
+}
+
+vec4 CCObjectToClipPos(vec4 vertex){
+  return cc_matProj * (cc_matView * cc_matWorld) * vertex;
+}
+
+vec3 UnpackNormal(vec4 packednormal)
+{
+  return packednormal.xyz - 0.5;
+}
+
+vec3 ObjSpaceLightDir(vec4 localV, vec4 worldLightPos)
+{
+    vec3 objSpaceLightPos = (cc_matWorldIT * worldLightPos).xyz;
+    #ifndef USING_LIGHT_MULTI_COMPILE
+        return objSpaceLightPos.xyz - localV.xyz * worldLightPos.w;
+    #else
+        #ifndef USING_DIRECTIONAL_LIGHT
+        return objSpaceLightPos.xyz - localV.xyz;
+        #else
+        return objSpaceLightPos.xyz;
+        #endif
+    #endif
+}
+
+vec3 ObjSpaceViewDir(vec4 localV)
+{
+    vec3 objSpaceCameraPos = (cc_matWorldIT * vec4(cc_cameraPos.xyz, 1)).xyz;
+    return objSpaceCameraPos - localV.xyz;
+}
+
+#pragma define clip(value) if(value < 0.0) discard;
+
+//与clip一样，由于cocos内置了同名方法。为避免引用冲突，第9章以后的会用这个宏代替。
+#pragma define doClip(value) if(value < 0.0) discard;
+
+#pragma define doLerp(value1, value2, value2Multiplier) mix(value1, value2, value2Multiplier)

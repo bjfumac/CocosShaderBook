@@ -1,0 +1,79 @@
+{
+  "ver": "2.3.8",
+  "importer": "fbx",
+  "imported": true,
+  "uuid": "f40f8b6a-6ba2-44fb-a4d9-b348b6f49a98",
+  "files": [],
+  "subMetas": {
+    "bfd1e": {
+      "importer": "gltf-mesh",
+      "uuid": "f40f8b6a-6ba2-44fb-a4d9-b348b6f49a98@bfd1e",
+      "displayName": "",
+      "id": "bfd1e",
+      "name": "Teapot01.mesh",
+      "userData": {
+        "gltfIndex": 0,
+        "triangleCount": 576
+      },
+      "ver": "1.1.1",
+      "imported": true,
+      "files": [
+        ".bin",
+        ".json"
+      ],
+      "subMetas": {}
+    },
+    "ddf7f": {
+      "importer": "gltf-scene",
+      "uuid": "f40f8b6a-6ba2-44fb-a4d9-b348b6f49a98@ddf7f",
+      "displayName": "",
+      "id": "ddf7f",
+      "name": "Teapot.prefab",
+      "userData": {
+        "gltfIndex": 0
+      },
+      "ver": "1.0.14",
+      "imported": true,
+      "files": [
+        ".json"
+      ],
+      "subMetas": {}
+    }
+  },
+  "userData": {
+    "imageMetas": [],
+    "fbx": {
+      "smartMaterialEnabled": true
+    },
+    "redirect": "f40f8b6a-6ba2-44fb-a4d9-b348b6f49a98@ddf7f",
+    "lods": {
+      "enable": false,
+      "hasBuiltinLOD": false,
+      "options": [
+        {
+          "screenRatio": 0.25,
+          "faceCount": 1
+        },
+        {
+          "screenRatio": 0.125,
+          "faceCount": 0.25
+        },
+        {
+          "screenRatio": 0.01,
+          "faceCount": 0.1
+        }
+      ]
+    },
+    "assetFinder": {
+      "meshes": [
+        "f40f8b6a-6ba2-44fb-a4d9-b348b6f49a98@bfd1e"
+      ],
+      "skeletons": [],
+      "textures": [],
+      "materials": [],
+      "scenes": [
+        "f40f8b6a-6ba2-44fb-a4d9-b348b6f49a98@ddf7f"
+      ]
+    }
+  }
+}

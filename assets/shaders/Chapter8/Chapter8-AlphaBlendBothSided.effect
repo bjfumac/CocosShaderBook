@@ -1,0 +1,184 @@
+// Effect Syntax Guide: https://docs.cocos.com/creator/manual/zh/shader/index.html
+
+CCEffect %{
+  techniques:
+  - name: transparent
+    passes:
+    - vert: vs-back:vert
+      frag: fs-back:frag
+      depthStencilState: #ZWrite Off
+        depthFunc: less_equal
+        depthTest: true
+        depthWrite: false
+      blendState: #Blend SrcAlpha OneMinusSrcAlpha
+        targets:
+        - blend: true
+          blendSrc: src_alpha
+          blendDst: one_minus_src_alpha
+      rasterizerState: #Cull Front
+        cullMode: front
+      properties: &props
+        _Color:      { value: [1, 1, 1, 1], editor: { type: color } }
+        _MainTex:    { value: white }
+        _MainTex_ST:   { value: [1, 1, 0, 0] }
+        _AlphaScale:    { value: 1.0, editor: { slide: true, range: [0.0, 1.0], step: 0.1, type: float } }
+    - vert: vs-front:vert
+      frag: fs-front:frag
+      depthStencilState: #ZWrite Off
+        depthFunc: less_equal
+        depthTest: true
+        depthWrite: false
+      blendState: #Blend SrcAlpha OneMinusSrcAlpha
+        targets:
+        - blend: true
+          blendSrc: src_alpha
+          blendDst: one_minus_src_alpha
+      rasterizerState: #Cull Back
+        cullMode: back
+      properties: *props #复制第一个pass的properties
+      
+}%
+
+CCProgram vs-back %{
+  precision highp float;
+  #include <builtin/uniforms/cc-global>
+  #include <builtin/uniforms/cc-local>
+  #include <../cc-cg>
+  in vec3 a_position;
+  in vec3 a_normal;
+  in vec2 a_texCoord;
+
+  out vec4 v_pos;
+  out vec3 v_worldNormal;
+  out vec3 v_worldPos;
+  out vec2 v_uv;
+
+  uniform ConstantV {
+    vec4 _MainTex_ST;
+  };
+
+  vec4 vert () {
+    //顶点坐标变换到投影空间
+    vec4 vertex = vec4(a_position, 1.0);
+    v_pos = CCObjectToClipPos(vertex);
+   
+    //法线变换到世界空间
+    vec3 normal = a_normal;
+    v_worldNormal =  mat3(cc_matWorldIT) * normal;
+
+    //顶点变换到世界坐标
+    v_worldPos = (cc_matWorld * vertex).xyz;
+
+    //uv坐标处理
+    v_uv = TRANSFORM_TEX(a_texCoord, _MainTex_ST);
+    return v_pos;
+  }
+}%
+
+
+CCProgram fs-back %{
+  precision highp float;
+  #include <legacy/output>
+  #include <builtin/uniforms/cc-global>
+  #include <../cc-cg>
+
+  in vec4 v_pos;
+  in vec3 v_worldNormal;
+  in vec3 v_worldPos;
+  in vec2 v_uv;
+
+  uniform ConstantF {
+    vec4 _Color;
+    float _AlphaScale;
+  };
+  uniform sampler2D _MainTex;
+
+  vec4 frag () {
+    //获取世界空间下的法线
+    vec3 worldNormal =  normalize(v_worldNormal);
+    //获取世界空间下的平行光方向
+    vec4 worldSpaceLightPos0 = vec4(-cc_mainLitDir.xyz, cc_mainLitDir.w);
+    vec3 worldLightDir = normalize(CCWorldSpaceLightDir(worldSpaceLightPos0, v_worldPos));
+    //从贴图获取反照率
+    vec4 texColor = texture(_MainTex, v_uv);
+    vec3 albedo = texColor.rgb * _Color.rgb;
+    //获取环境光
+    vec3 ambient = cc_ambientSky.xyz * albedo;
+    //计算漫反射
+    vec3 diffuse = cc_mainLitColor.rgb * albedo * max(0.0, dot(worldNormal, worldLightDir));
+    
+    return CCFragOutput(vec4(ambient + diffuse, texColor.a * _AlphaScale));
+  }
+}%
+
+CCProgram vs-front %{
+  precision highp float;
+  #include <builtin/uniforms/cc-global>
+  #include <builtin/uniforms/cc-local>
+  #include <../cc-cg>
+  in vec3 a_position;
+  in vec3 a_normal;
+  in vec2 a_texCoord;
+
+  out vec4 v_pos;
+  out vec3 v_worldNormal;
+  out vec3 v_worldPos;
+  out vec2 v_uv;
+
+  uniform ConstantV {
+    vec4 _MainTex_ST;
+  };
+
+  vec4 vert () {
+    //顶点坐标变换到投影空间
+    vec4 vertex = vec4(a_position, 1.0);
+    v_pos = CCObjectToClipPos(vertex);
+   
+    //法线变换到世界空间
+    vec3 normal = a_normal;
+    v_worldNormal =  mat3(cc_matWorldIT) * normal;
+
+    //顶点变换到世界坐标
+    v_worldPos = (cc_matWorld * vertex).xyz;
+
+    //uv坐标处理
+    v_uv = TRANSFORM_TEX(a_texCoord, _MainTex_ST);
+    return v_pos;
+  }
+}%
+
+
+CCProgram fs-front %{
+  precision highp float;
+  #include <legacy/output>
+  #include <builtin/uniforms/cc-global>
+  #include <../cc-cg>
+
+  in vec4 v_pos;
+  in vec3 v_worldNormal;
+  in vec3 v_worldPos;
+  in vec2 v_uv;
+
+  uniform ConstantF {
+    vec4 _Color;
+    float _AlphaScale;
+  };
+  uniform sampler2D _MainTex;
+
+  vec4 frag () {
+    //获取世界空间下的法线
+    vec3 worldNormal =  normalize(v_worldNormal);
+    //获取世界空间下的平行光方向
+    vec4 worldSpaceLightPos0 = vec4(-cc_mainLitDir.xyz, cc_mainLitDir.w);
+    vec3 worldLightDir = normalize(CCWorldSpaceLightDir(worldSpaceLightPos0, v_worldPos));
+    //从贴图获取反照率
+    vec4 texColor = texture(_MainTex, v_uv);
+    vec3 albedo = texColor.rgb * _Color.rgb;
+    //获取环境光
+    vec3 ambient = cc_ambientSky.xyz * albedo;
+    //计算漫反射
+    vec3 diffuse = cc_mainLitColor.rgb * albedo * max(0.0, dot(worldNormal, worldLightDir));
+    
+    return CCFragOutput(vec4(ambient + diffuse, texColor.a * _AlphaScale));
+  }
+}%

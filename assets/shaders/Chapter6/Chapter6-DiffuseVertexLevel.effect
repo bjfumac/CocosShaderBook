@@ -1,0 +1,62 @@
+// Effect Syntax Guide: https://docs.cocos.com/creator/manual/zh/shader/index.html
+
+CCEffect %{
+  techniques:
+  - name: opaque
+    passes:
+    - vert: vs:vert
+      frag: fs:frag
+      properties: &props
+        _Diffuse:      { value: [1, 1, 1, 1], editor: { type: color } }
+    
+
+}%
+
+
+CCProgram vs %{
+  precision highp float;
+  #include <builtin/uniforms/cc-global>
+  #include <builtin/uniforms/cc-local>
+  in vec3 a_position;
+  in vec3 a_normal;
+
+  out vec4 v_pos;
+  out vec3 v_color;
+
+  uniform Constant {
+    vec4 _Diffuse;
+  };
+
+  #define saturate(a) clamp(a, 0.0, 1.0)
+
+  vec4 vert () {
+    //顶点坐标变换到投影空间
+    vec4 vertex = vec4(a_position, 1.0);
+    v_pos = cc_matProj * (cc_matView * cc_matWorld) * vertex;
+    //获取环境光
+    vec3 ambient = cc_ambientSky.xyz;
+    //法线变换到世界空间
+    vec3 normal = a_normal;
+    vec3 worldNormal =  mat3(cc_matWorldIT) * normal;
+    //获取世界空间下的平行光方向
+    vec3 worldLightDir = normalize(-cc_mainLitDir.xyz);
+    //计算漫反射
+    vec3 diffuse = cc_mainLitColor.rgb * _Diffuse.rgb * saturate(dot(worldNormal, worldLightDir));
+    v_color = ambient + diffuse;
+    return v_pos;
+  }
+}%
+
+
+CCProgram fs %{
+  precision highp float;
+  #include <legacy/output>
+  #include <builtin/uniforms/cc-global>
+
+  in vec4 v_pos;
+  in vec3 v_color;
+
+  vec4 frag () {
+    return CCFragOutput(vec4(v_color, 1.0));
+  }
+}%

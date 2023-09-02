@@ -1,0 +1,79 @@
+{
+  "ver": "2.3.8",
+  "importer": "fbx",
+  "imported": true,
+  "uuid": "afd10fa5-74cd-4c0a-93ec-766e22c52ba6",
+  "files": [],
+  "subMetas": {
+    "84800": {
+      "importer": "gltf-scene",
+      "uuid": "afd10fa5-74cd-4c0a-93ec-766e22c52ba6@84800",
+      "displayName": "",
+      "id": "84800",
+      "name": "suzanne.prefab",
+      "userData": {
+        "gltfIndex": 0
+      },
+      "ver": "1.0.14",
+      "imported": true,
+      "files": [
+        ".json"
+      ],
+      "subMetas": {}
+    },
+    "bcca5": {
+      "importer": "gltf-mesh",
+      "uuid": "afd10fa5-74cd-4c0a-93ec-766e22c52ba6@bcca5",
+      "displayName": "",
+      "id": "bcca5",
+      "name": "UnnamedMesh.mesh",
+      "userData": {
+        "gltfIndex": 0,
+        "triangleCount": 15488
+      },
+      "ver": "1.1.1",
+      "imported": true,
+      "files": [
+        ".bin",
+        ".json"
+      ],
+      "subMetas": {}
+    }
+  },
+  "userData": {
+    "imageMetas": [],
+    "fbx": {
+      "smartMaterialEnabled": true
+    },
+    "redirect": "afd10fa5-74cd-4c0a-93ec-766e22c52ba6@84800",
+    "lods": {
+      "enable": false,
+      "hasBuiltinLOD": false,
+      "options": [
+        {
+          "screenRatio": 0.25,
+          "faceCount": 1
+        },
+        {
+          "screenRatio": 0.125,
+          "faceCount": 0.25
+        },
+        {
+          "screenRatio": 0.01,
+          "faceCount": 0.1
+        }
+      ]
+    },
+    "assetFinder": {
+      "meshes": [
+        "afd10fa5-74cd-4c0a-93ec-766e22c52ba6@bcca5"
+      ],
+      "skeletons": [],
+      "textures": [],
+      "materials": [],
+      "scenes": [
+        "afd10fa5-74cd-4c0a-93ec-766e22c52ba6@84800"
+      ]
+    }
+  }
+}

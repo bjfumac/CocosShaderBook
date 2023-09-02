@@ -1,0 +1,122 @@
+// Effect Syntax Guide: https://docs.cocos.com/creator/manual/zh/shader/index.html
+
+CCEffect %{
+  techniques:
+  - name: opaque
+    passes:
+    - vert: vs:vert
+      frag: fs:frag
+      properties: &props
+        _Color:      { value: [1, 1, 1, 1], editor: { type: color } }
+        _MainTex:    { value: white }
+        _MainTex_ST:   { value: [1, 1, 0, 0] }
+        _BumpMap:    { value: white }
+        _BumpScale:    { value: 1.0, editor: { type: float } }
+        _SpecularMask:    { value: white }
+        _SpecularScale:    { value: 1.0, editor: { type: float } }
+        _Specular:      { value: [1, 1, 1, 1], editor: { type: color } }
+        _Gloss:            { value: 20.0, editor: { slide: true, range: [8.0, 255.0], step: 1, type: float } }
+        _LightWorldPos:   { value: [0, 0, 0, 0] }
+}%
+
+
+CCProgram vs %{
+  precision highp float;
+  #include <builtin/uniforms/cc-global>
+  #include <builtin/uniforms/cc-local>
+  #include <../cc-cg>
+  in vec3 a_position;
+  in vec3 a_normal;
+  in vec4 a_tangent;
+  in vec2 a_texCoord;
+
+  out vec4 v_pos;
+  out vec4 v_uv;
+  out vec3 v_lightDir;
+  out vec3 v_viewDir;
+
+  uniform ConstantV {
+    vec4 _MainTex_ST;
+    vec4 _LightWorldPos;
+  };
+
+  
+
+  vec4 vert () {
+    //顶点坐标变换到投影空间
+    vec4 vertex = vec4(a_position, 1.0);
+    v_pos = CCObjectToClipPos(vertex);
+
+    //uv坐标处理
+    v_uv.xy = a_texCoord.xy * _MainTex_ST.xy + _MainTex_ST.zw;
+    
+    //法线变换到世界空间
+    vec3 worldNormal =  CCObjectToWorldNormal(a_normal);
+    //切线变换到世界空间
+    vec3 worldTangent = CCObjectToWorldDir(a_tangent.xyz);
+    //计算副法线
+    vec3 worldBinormal = cross(worldNormal, worldTangent) * a_tangent.w;
+    //计算世界空间到切线空间矩阵
+    mat3 worldToTangent = mat3(worldTangent, worldBinormal, worldNormal);
+
+    //计算世界空间到切线空间矩阵
+    mat3 rotation = mat3(worldTangent.x, worldBinormal.x, worldNormal.x,
+							    worldTangent.y, worldBinormal.y, worldNormal.y,
+			 				    worldTangent.z, worldBinormal.z, worldNormal.z);
+
+    //将灯光和视线方向从局部空间变换到切线空间
+    vec4 worldLightPos = vec4(-cc_mainLitDir.x, -cc_mainLitDir.y, -cc_mainLitDir.z, cc_mainLitDir.w);
+    v_lightDir = rotation * ObjSpaceLightDir(vertex, worldLightPos);
+    v_viewDir = rotation * ObjSpaceViewDir(vertex);
+
+    return v_pos;
+  }
+}%
+
+
+CCProgram fs %{
+  precision highp float;
+  #include <legacy/output>
+  #include <builtin/uniforms/cc-global>
+  #include <../cc-cg>
+
+  in vec4 v_pos;
+  in vec4 v_uv;
+  in vec3 v_lightDir;
+  in vec3 v_viewDir;
+
+  uniform ConstantF {
+    vec4 _Color;
+    vec4 _Specular;
+    float _Gloss;
+    float _BumpScale;
+    float _SpecularScale;
+  };
+  uniform sampler2D _MainTex;
+  uniform sampler2D _BumpMap;
+  uniform sampler2D _SpecularMask;
+
+  vec4 frag () {
+    vec3 tangentLightDir = normalize(v_lightDir);
+		vec3 tangentViewDir = normalize(v_viewDir);
+
+   //获取凹凸贴图中的纹素
+    vec4 packedNormal = texture(_BumpMap, v_uv.zw);
+    vec3 tangentNormal;
+    tangentNormal = UnpackNormal(packedNormal);
+    tangentNormal.xy *= _BumpScale;
+    tangentNormal.z = sqrt(1.0 - saturate(dot(tangentNormal.xy, tangentNormal.xy)));
+
+    //从贴图获取反照率
+    vec3 albedo = texture(_MainTex, v_uv.xy).rgb * _Color.rgb;
+    //获取环境光
+    vec3 ambient = cc_ambientSky.xyz * albedo;
+    //计算漫反射
+    vec3 diffuse = cc_mainLitColor.rgb * albedo * max(0.0, dot(tangentNormal, tangentLightDir));
+    //计算高光
+    vec3 halfDir = normalize(tangentLightDir + tangentViewDir);
+    float specularMask = texture(_SpecularMask, v_uv.xy).r * _SpecularScale;
+    vec3 specular = cc_mainLitColor.rgb * _Specular.rgb * pow(max(0.0, dot(tangentNormal, halfDir)), _Gloss) * specularMask;
+    return CCFragOutput(vec4(ambient + diffuse + specular, 1.0));
+  }
+}%

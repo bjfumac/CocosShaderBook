@@ -1,0 +1,308 @@
+// Effect Syntax Guide: https://docs.cocos.com/creator/manual/zh/shader/index.html
+// 注意：由于Unity和Cosos的渲染管线不太一样，无法按照Unity的方式实现阴影。建议只看下书中的阴影实现原理即可
+// 采用阴影映射纹理shadow map实现，需要把场景的阴影模式配置为shadow map，这种技术的缺点是移动平台纹理尺寸限制在2048x2048，所以阴影容易出现锯齿。
+// 目前只实现了阴影发生器，暂时没有实现阴影接收器，所以只能给cocos自带的mat打阴影，后面找时间再补上。
+// 暂时只对主方向光有效
+CCEffect %{
+  techniques:
+  - name: opaque
+    passes:
+    #计算主光源（一般是距离最近的平行光）和环境光
+    - vert: vs-main:vert
+      frag: fs-main:frag
+      depthStencilState: #需要开启depthTest否则无法渲染主光源之外的光
+        depthFunc: less_equal
+        depthTest: true
+        depthWrite: true
+      properties: &props
+        _Diffuse:      { value: [1, 1, 1, 1], editor: { type: color } }
+        _Specular:      { value: [1, 1, 1, 1], editor: { type: color } }
+        _Gloss:    { value: 20.0, editor: { slide: true, range: [8.0, 256.0], step: 0.1, type: float } }
+    #计算附加/额外光源
+    - vert: vs-other:vert
+      frag: fs-other:frag
+      phase: forward-add #"LightMode"="ForwardAdd"
+      depthStencilState: 
+        depthFunc: less_equal
+        depthTest: true
+        depthWrite: false
+      blendState: #Blend One One
+        targets:
+        - blend: true
+          blendSrc: one
+          blendDst: one
+      properties: *props
+    #面板中勾选Shadow Casting Mode后，挂载这个pass可以实现阴影计算
+    #原理是把相机放到光源位置去观察物体，看不到的区域就是阴影区域，将这些区域保存在shadow map中
+    - &shadow-caster
+      vert: shadow-caster-vs:vert
+      frag: shadow-caster-fs:frag
+      phase: shadow-caster
+      rasterizerState:
+        cullMode: front #正面为光源可打到的区域，所以剔除掉，只留下光线打不到的区域进行阴影绘制
+      
+}%
+
+
+CCProgram vs-main %{
+  precision highp float;
+  #include <builtin/uniforms/cc-global>
+  #include <builtin/uniforms/cc-local>
+  #include <../cc-cg>
+
+  in vec3 a_position;
+  in vec3 a_normal;
+
+  out vec4 v_pos;
+  out vec3 v_worldNormal;
+  out vec3 v_worldPos;
+
+  vec4 vert () {
+    //顶点坐标变换到投影空间
+    vec4 vertex = vec4(a_position, 1.0);
+    v_pos = CCObjectToClipPos(vertex);
+   
+    //法线变换到世界空间
+    vec3 normal = a_normal;
+    v_worldNormal =  mat3(cc_matWorldIT) * normal;
+
+    //顶点变换到世界坐标
+    v_worldPos = (cc_matWorld * vertex).xyz;
+
+    return v_pos;
+  }
+}%
+
+
+CCProgram fs-main %{
+  precision highp float;
+  #include <legacy/output>
+  #include <builtin/uniforms/cc-global>
+  #include <../cc-cg>
+
+  in vec4 v_pos;
+  in vec3 v_worldNormal;
+  in vec3 v_worldPos;
+
+  uniform ConstantF {
+    vec4 _Diffuse;
+    vec4 _Specular;
+    float _Gloss;
+  };
+
+  vec4 frag () {
+    //获取世界空间下的法线
+    vec3 worldNormal =  normalize(v_worldNormal);
+    //获取世界空间下的平行光方向
+    vec4 worldSpaceLightPos0 = vec4(-cc_mainLitDir.xyz, cc_mainLitDir.w);
+    vec3 worldLightDir = normalize(CCWorldSpaceLightDir(worldSpaceLightPos0, v_worldPos));
+    //获取环境光
+    vec3 ambient = cc_ambientSky.xyz;
+    //获取漫反射
+    vec3 diffuse = cc_mainLitColor.rgb * _Diffuse.rgb * max(0.0, dot(worldNormal, worldLightDir));
+    //计算视线方向
+    vec3 viewDir = normalize(CCWorldSpaceViewDir(v_worldPos));
+    //计算高光
+    vec3 halfDir = normalize(worldLightDir + viewDir);
+    //计算高光
+    vec3 specular = cc_mainLitColor.rgb * _Specular.rgb * pow(max(0.0, dot(worldNormal, halfDir)), _Gloss);
+    //设置衰减值，平行光不衰减
+    float atten = 1.0;
+    return CCFragOutput(vec4(ambient + (diffuse + specular) * atten, 1.0));
+  }
+}%
+
+
+CCProgram vs-other %{
+  precision highp float;
+  #include <builtin/uniforms/cc-global>
+  #include <builtin/uniforms/cc-local>
+  
+  #include <../cc-cg>
+  in vec3 a_position;
+  in vec3 a_normal;
+
+  out vec4 v_pos;
+  out vec3 v_worldNormal;
+  out vec3 v_worldPos;
+
+  vec4 vert () {
+    //顶点坐标变换到投影空间
+    vec4 vertex = vec4(a_position, 1.0);
+    v_pos = CCObjectToClipPos(vertex);
+   
+    //法线变换到世界空间
+    vec3 normal = a_normal;
+    v_worldNormal =  mat3(cc_matWorldIT) * normal;
+
+    //顶点变换到世界坐标
+    v_worldPos = (cc_matWorld * vertex).xyz;
+
+    return v_pos;
+  }
+}%
+
+
+CCProgram fs-other %{
+  precision highp float;
+  #include <legacy/output>
+  #include <builtin/uniforms/cc-global>
+  #include <builtin/uniforms/cc-local>
+  //需要引入下面这个chunk
+  #include <builtin/uniforms/cc-forward-light>
+
+  #include <../cc-cg>
+
+  in vec4 v_pos;
+  in vec3 v_worldNormal;
+  in vec3 v_worldPos;
+
+  uniform ConstantF {
+    vec4 _Diffuse;
+    vec4 _Specular;
+    float _Gloss;
+  };
+
+  //cocos自带 #include <common/lighting/attenuation>
+  float GetAngleAtt (vec3 L, vec3 litDir, float litAngleScale, float litAngleOffset) {
+    float cd = dot(litDir, L);
+    float attenuation = clamp(cd * litAngleScale + litAngleOffset, 0.0, 1.0);
+    return (attenuation * attenuation);
+  }
+
+  vec4 frag () {
+    //获取世界空间下的法线
+    vec3 worldNormal =  normalize(v_worldNormal);
+    //输出的最终颜色值
+    vec3 outputColor;
+    //计算附加光源形成的图像，这里与unity有比较大的区别，unity的每个附加光源都会独立执行一次forward-add pass
+    //但是cocos会集中在一个forward-add中计算全部附加光源，所以需要for循环遍历全部附加光源
+    //LIGHTS_PER_PASS=10
+    //for循环的最大值只能使用常量，建议额外传一个光源数量的uniform进来，在for循环中进行判断并break
+    for (int i = 0; i < LIGHTS_PER_PASS; i++)
+    {
+      //获取世界空间下的光线位置
+      vec4 singleWorldLightPos = cc_lightPos[i];
+      vec4 worldSpaceLightPos0 = vec4(singleWorldLightPos.xyz, 1.0);
+      //获取光线颜色
+      vec4 singleWorldLightColor = cc_lightColor[i];
+      //计算世界空间下的光线方向
+      vec3 worldLightDir;
+      if(singleWorldLightPos.w == 0.0){
+        worldLightDir = normalize(worldSpaceLightPos0.xyz);
+      }
+      else {
+        worldLightDir = normalize(worldSpaceLightPos0.xyz - v_worldPos.xyz);
+      }
+      //获取漫反射
+      vec3 diffuse = singleWorldLightColor.rgb * _Diffuse.rgb * max(0.0, dot(worldNormal, worldLightDir));
+      //计算视线方向
+      vec3 viewDir = normalize(CCWorldSpaceViewDir(v_worldPos));
+      //计算半程向量
+      vec3 halfDir = normalize(worldLightDir + viewDir);
+      //计算高光
+      vec3 specular = singleWorldLightColor.rgb * _Specular.rgb * pow(max(0.0, dot(worldNormal, halfDir)), _Gloss);
+      //计算光线衰减
+      float atten;
+      //平行光，没有衰减
+      if(singleWorldLightPos.w == 0.0){
+        atten = 1.0;
+      }
+      //点光源/球光源，根据距离远近线性衰减
+      else if(singleWorldLightPos.w == 1.0){
+        float _distance = distance(worldSpaceLightPos0.xyz, v_worldPos);    
+        atten = 1.0/_distance;   
+      }
+      //聚光灯，需要计算光线扩散边缘
+      else if(singleWorldLightPos.w == 2.0){
+        float _distance = distance(worldSpaceLightPos0.xyz, v_worldPos);    
+        atten = 1.0/_distance; 
+        float cosInner = max(dot(-cc_lightDir[i].xyz, worldLightDir), 0.01);
+        float cosOuter = cc_lightSizeRangeAngle[i].z;
+        float litAngleScale = 1.0 / max(0.001, cosInner - cosOuter);
+        float litAngleOffset = -cosOuter * litAngleScale;
+        atten *= GetAngleAtt(worldLightDir, -cc_lightDir[i].xyz, litAngleScale, litAngleOffset);
+      }
+      //全部光源照射后的颜色叠加
+      outputColor += vec3((diffuse + specular) * atten);
+    }
+    return CCFragOutput(vec4(outputColor, 1.0));
+  }
+}%
+
+
+CCProgram shadow-caster-vs %{
+  precision highp float;
+  #include <builtin/uniforms/cc-global>
+  #include <builtin/uniforms/cc-local>
+  #include <legacy/shadow-map-base>
+  
+  in vec3 a_position;
+  in vec3 a_normal;
+  #if CC_RECEIVE_SHADOW
+    in vec4 a_localShadowBiasAndProbeId;
+  #endif
+
+  out highp vec4 v_localPos;
+  out vec3 v_worldPos;
+  out vec4 v_normal;
+  out highp vec2 v_clip_depth;
+  out highp vec4 v_clipPos;
+  out mediump vec4 v_shadowBiasAndProbeId;
+
+  
+  vec4 vert()
+  {
+    vec4 vertex = vec4(a_position, 1.0);
+    v_localPos = vertex;
+    //计算顶点的世界空间坐标
+    v_worldPos = (cc_matWorld * vertex).xyz;
+    //计算法线的世界空间坐标
+    v_normal = normalize((cc_matWorldIT * vec4(a_normal, 0.0)));
+    //计算灯光投影下的顶点坐标
+    v_clipPos = cc_matLightViewProj * vec4(v_worldPos.xyz, 1.0);
+    //预留的阴影接收器代码
+    #if CC_RECEIVE_SHADOW
+      v_shadowBiasAndProbeId.xy = a_localShadowBiasAndProbeId.xy;
+    #endif
+    //输出灯光投影空间的深度信息，并保持其齐次坐标属性（带着w）。
+    v_clip_depth = v_clipPos.zw;
+    //输出灯光投影空间的顶点坐标
+    return v_clipPos;
+  }
+  
+  
+}%
+
+
+CCProgram shadow-caster-fs %{
+  precision highp float;
+  #if CC_SHADOWMAP_USE_LINEAR_DEPTH
+    #include <builtin/functionalities/shadow-map>
+  #endif
+  #include <builtin/uniforms/cc-shadow>
+  
+  in highp vec2 v_clip_depth;
+  in vec3 v_worldPos;
+
+  vec4 frag () {
+    vec4 depthColor;
+    //把投影坐标中的z变换到NDC(Normalized Device Coordinate)坐标中，即z/w，范围[0, 1]
+    highp float clipDepth = v_clip_depth.x / v_clip_depth.y * 0.5 + 0.5;
+    //阴影图采用线性深度
+    #if CC_SHADOWMAP_USE_LINEAR_DEPTH
+      //如果是聚光灯采用这个算法
+      if (cc_shadowLPNNInfo.x == 2.0) {
+        clipDepth = CCGetLinearDepth(v_worldPos.xyz);
+      }
+    #endif
+    //根据阴影图格式选择像素解析算法
+    #if CC_SHADOWMAP_FORMAT == SHADOWMAP_FORMAT_RGBA8
+      depthColor = packDepthToRGBA(clipDepth);
+    #else
+      depthColor = vec4(clipDepth, 1.0, 1.0, 1.0);
+    #endif
+    return depthColor;
+  }
+
+}%

@@ -1,0 +1,59 @@
+// Effect Syntax Guide: https://docs.cocos.com/creator/manual/zh/shader/index.html
+
+CCEffect %{
+  techniques:
+  - name: opaque
+    passes:
+    - vert: vs:vert
+      frag: fs:frag
+      properties: &props
+        _MainTex:    { value: white }
+        _TilingAndOffset:   { value: [1, 1, 0, 0] }
+
+}%
+
+
+CCProgram vs %{
+  precision highp float;
+  #include <builtin/uniforms/cc-global>
+  #include <builtin/uniforms/cc-local>
+  in vec3 a_position;
+  in vec2 a_texCoord;
+
+  out vec4 v_pos;
+  out vec2 v_uv;
+
+  uniform ConstantV {
+    vec4 _TilingAndOffset;
+  };
+
+  vec4 vert () {
+    //顶点坐标变换到投影空间
+    vec4 vertex = vec4(a_position, 1.0);
+    v_pos = cc_matProj * (cc_matView * cc_matWorld) * vertex;
+
+    //uv坐标处理
+    v_uv = a_texCoord * _TilingAndOffset.xy + _TilingAndOffset.zw;
+    return v_pos;
+  }
+}%
+
+
+CCProgram fs %{
+  precision highp float;
+  #include <legacy/output>
+  #include <builtin/uniforms/cc-global>
+
+  in vec4 v_pos;
+  in vec2 v_uv;
+
+  uniform sampler2D _MainTex;
+
+  vec4 frag () {
+   
+    //从贴图获取反照率
+    vec3 albedo = texture(_MainTex, v_uv).rgb;
+  
+    return CCFragOutput(vec4(albedo, 1.0));
+  }
+}%

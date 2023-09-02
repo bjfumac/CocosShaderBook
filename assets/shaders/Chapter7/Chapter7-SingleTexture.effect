@@ -1,0 +1,95 @@
+// Effect Syntax Guide: https://docs.cocos.com/creator/manual/zh/shader/index.html
+
+CCEffect %{
+  techniques:
+  - name: opaque
+    passes:
+    - vert: vs:vert
+      frag: fs:frag
+      properties: &props
+        _Color:      { value: [1, 1, 1, 1], editor: { type: color } }
+        _Specular:      { value: [1, 1, 1, 1], editor: { type: color } }
+        _Gloss:            { value: 20.0, editor: { slide: true, range: [8.0, 255.0], step: 1, type: float } }
+        _MainTex:    { value: white }
+        _TilingAndOffset:   { value: [1, 1, 0, 0] }
+
+}%
+
+
+CCProgram vs %{
+  precision highp float;
+  #include <builtin/uniforms/cc-global>
+  #include <builtin/uniforms/cc-local>
+  in vec3 a_position;
+  in vec3 a_normal;
+  in vec2 a_texCoord;
+
+  out vec4 v_pos;
+  out vec3 v_worldNormal;
+  out vec3 v_worldPos;
+  out vec2 v_uv;
+
+  uniform ConstantV {
+    vec4 _TilingAndOffset;
+  };
+
+  #define saturate(a) clamp(a, 0.0, 1.0)
+
+  vec4 vert () {
+    //顶点坐标变换到投影空间
+    vec4 vertex = vec4(a_position, 1.0);
+    v_pos = cc_matProj * (cc_matView * cc_matWorld) * vertex;
+   
+    //法线变换到世界空间
+    vec3 normal = a_normal;
+    v_worldNormal =  mat3(cc_matWorldIT) * normal;
+
+    //顶点变换到世界坐标
+    v_worldPos = (cc_matWorld * vertex).xyz;
+
+    //uv坐标处理
+    v_uv = a_texCoord * _TilingAndOffset.xy + _TilingAndOffset.zw;
+    return v_pos;
+  }
+}%
+
+
+CCProgram fs %{
+  precision highp float;
+  #include <legacy/output>
+  #include <builtin/uniforms/cc-global>
+
+  #define saturate(a) clamp(a, 0.0, 1.0)
+
+  in vec4 v_pos;
+  in vec3 v_worldNormal;
+  in vec3 v_worldPos;
+  in vec2 v_uv;
+
+  uniform ConstantF {
+    vec4 _Color;
+    vec4 _Specular;
+    float _Gloss;
+  };
+  uniform sampler2D _MainTex;
+
+  vec4 frag () {
+    //获取世界空间下的法线
+    vec3 worldNormal =  normalize(v_worldNormal);
+    //获取世界空间下的平行光方向
+    vec3 worldLightDir = normalize(-cc_mainLitDir.xyz);
+    //从贴图获取反照率
+    vec3 albedo = texture(_MainTex, v_uv).rgb * _Color.rgb;
+    //获取环境光
+    vec3 ambient = cc_ambientSky.xyz;
+    //计算漫反射
+    vec3 diffuse = cc_mainLitColor.rgb * albedo * saturate(dot(worldNormal, worldLightDir));
+    //获取世界空间下的视线方向
+    vec3 viewDir = normalize(cc_cameraPos.xyz - v_worldPos);
+    //获取世界空间下的反射向量
+    vec3 reflectDir = normalize(reflect(-worldLightDir, worldNormal));
+    //计算高光
+    vec3 specular = cc_mainLitColor.rgb * _Specular.rgb * pow(saturate(dot(reflectDir, viewDir)), _Gloss);
+    return CCFragOutput(vec4(ambient + diffuse + specular, 1.0));
+  }
+}%
