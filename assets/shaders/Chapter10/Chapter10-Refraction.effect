@@ -1,0 +1,110 @@
+// Effect Syntax Guide: https://docs.cocos.com/creator/manual/zh/shader/index.html
+// 先参考 https://docs.cocos.com/creator/manual/zh/concepts/scene/skybox.html 配置环境贴图
+// 可以通过设置_Cubemap指定环境贴图或者用cc_environment使用场景配置好的环境贴图
+// Unity版里有一些阴影相关的shader，因为和环境贴图没什么关系，就没有加进来。
+CCEffect %{
+  techniques:
+  - name: opaque
+    passes:
+    - vert: vs:vert
+      frag: fs:frag
+      properties: &props
+        _Color:      { value: [1, 1, 1, 1], editor: { type: color } }
+        _ReflectColor:      { value: [1, 1, 1, 1], editor: { type: color } }
+        _ReflectAmount:            { value: 0.8, editor: { slide: true, range: [0.0, 1.0], step: 0.1, type: float } }
+        _RefractRatio:            { value: 0.8, editor: { slide: true, range: [0.1, 1.0], step: 0.1, type: float } }
+        _Cubemap:    { value: grey }
+
+}%
+
+
+CCProgram vs %{
+  precision highp float;
+  #include <builtin/uniforms/cc-global>
+  #include <builtin/uniforms/cc-local>
+  #include <../cc-cg>
+  in vec3 a_position;
+  in vec3 a_normal;
+
+  out vec4 v_pos;
+  out vec3 v_worldNormal;
+  out vec3 v_worldPos;
+  out vec3 v_worldViewDir;
+  out vec3 v_worldRefr;
+
+  uniform ConstantV {
+    float _RefractRatio;
+  };
+
+  vec4 vert () {
+    //顶点坐标变换到投影空间
+    vec4 vertex = vec4(a_position, 1.0);
+    v_pos = CCObjectToClipPos(vertex);
+   
+    //法线变换到世界空间
+    v_worldNormal = CCObjectToWorldNormal(a_normal);
+
+    //顶点变换到世界坐标
+    v_worldPos = (cc_matWorld * vertex).xyz;
+
+    v_worldViewDir = normalize(CCWorldSpaceViewDir(v_worldPos));
+
+    //计算逆向光路（斯涅尔折射），注意v_worldViewDir和v_worldNormal必须是归一化的
+    v_worldRefr = refract(-normalize(v_worldViewDir), normalize(v_worldNormal), _RefractRatio);
+
+    return v_pos;
+  }
+}%
+
+
+CCProgram fs %{
+  precision highp float;
+  #include <legacy/output>
+  #include <builtin/uniforms/cc-global>
+  #include <common/texture/texture-lod>
+  #include <builtin/uniforms/cc-environment>
+  #include <../cc-cg>
+
+  in vec4 v_pos;
+  in vec3 v_worldNormal;
+  in vec3 v_worldPos;
+  in vec3 v_worldViewDir;
+  in vec3 v_worldRefr;
+
+  uniform ConstantF {
+    vec4 _Color;
+    vec4 _ReflectColor;
+    float _ReflectAmount;
+  };
+  uniform samplerCube _Cubemap;
+
+  vec4 frag () {
+    //获取世界空间下的法线
+    vec3 worldNormal =  normalize(v_worldNormal);
+    
+    //获取世界空间下的平行光方向
+    vec4 worldSpaceLightPos0 = vec4(-cc_mainLitDir.xyz, cc_mainLitDir.w);
+    vec3 worldLightDir = normalize(CCWorldSpaceLightDir(worldSpaceLightPos0, v_worldPos));	
+    
+    //获取环境光
+    vec3 ambient = cc_ambientSky.xyz;
+    
+    //计算漫反射
+    vec3 diffuse = cc_mainLitColor.rgb * _Color.rgb * max(0.0, dot(worldNormal, worldLightDir));
+    
+    //从场景的环境贴图中采样，fragTextureLod是cocos自带的cubemap采样函数，用来处理不同版本opengl的兼容性问题。
+    vec3 reflection = fragTextureLod(cc_environment, v_worldRefr, 1.0).rgb * _ReflectColor.rgb;
+    //从材质设定的_Cubemap采样，和上面的二选一
+    //vec3 reflection = fragTextureLod(_Cubemap, v_worldRefl, 1.0).rgb * _ReflectColor.rgb;
+    
+    //cocos的环境贴图采用srgb编码，需要转成线性编码输出到屏幕
+    reflection = SRGBToLinear(reflection);
+
+    //设定光线衰减，平行光不衰减
+    float atten = 1.0;
+
+    //计算最终颜色值，doLerp是简单的线性插值，通过编辑器中的Reflect Amount拉杆调整反射程度更偏向diffuse还是reflection
+    vec3 color = ambient + doLerp(diffuse, reflection, _ReflectAmount) * atten;
+    return CCFragOutput(vec4(color, 1.0));
+  }
+}%
