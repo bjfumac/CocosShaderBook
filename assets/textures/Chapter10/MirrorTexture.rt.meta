@@ -1,0 +1,40 @@
+{
+  "ver": "1.2.2",
+  "importer": "render-texture",
+  "imported": true,
+  "uuid": "4ed58fda-5ac9-4b4c-8a0e-b4d2cbb39202",
+  "files": [
+    ".json"
+  ],
+  "subMetas": {
+    "f9941": {
+      "importer": "rt-sprite-frame",
+      "uuid": "4ed58fda-5ac9-4b4c-8a0e-b4d2cbb39202@f9941",
+      "displayName": "MirrorTexture",
+      "id": "f9941",
+      "name": "spriteFrame",
+      "userData": {
+        "imageUuidOrDatabaseUri": "4ed58fda-5ac9-4b4c-8a0e-b4d2cbb39202",
+        "width": 1024,
+        "height": 1024
+      },
+      "ver": "1.0.0",
+      "imported": true,
+      "files": [
+        ".json"
+      ],
+      "subMetas": {}
+    }
+  },
+  "userData": {
+    "width": 1024,
+    "height": 1024,
+    "anisotropy": 0,
+    "minfilter": "linear",
+    "magfilter": "linear",
+    "mipfilter": "none",
+    "wrapModeS": "clamp-to-edge",
+    "wrapModeT": "clamp-to-edge",
+    "redirect": "4ed58fda-5ac9-4b4c-8a0e-b4d2cbb39202@f9941"
+  }
+}

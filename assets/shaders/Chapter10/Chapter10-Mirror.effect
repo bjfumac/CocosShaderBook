@@ -1,0 +1,55 @@
+// Effect Syntax Guide: https://docs.cocos.com/creator/manual/zh/shader/index.html
+// 镜子效果依赖渲染纹理实现 https://docs.cocos.com/creator/manual/zh/asset/render-texture.html
+// 在编辑器里看不到效果，需要运行起来
+CCEffect %{
+  techniques:
+  - name: opaque
+    passes:
+    - vert: vs:vert
+      frag: fs:frag
+      properties: &props
+        _MainTex:    { value: white }
+}%
+
+
+CCProgram vs %{
+  precision highp float;
+  #include <builtin/uniforms/cc-global>
+  #include <builtin/uniforms/cc-local>
+  #include <../cc-cg>
+  in vec3 a_position;
+  in vec2 a_texCoord;
+
+  out vec4 v_pos;
+  out vec2 v_uv;
+
+  vec4 vert () {
+    //顶点坐标变换到投影空间
+    vec4 vertex = vec4(a_position, 1.0);
+    v_pos = CCObjectToClipPos(vertex);
+
+    //uv坐标处理
+    v_uv = a_texCoord;
+    
+    //翻转渲染纹理，否则显示出来是反的。
+    v_uv.x = 1.0 - v_uv.x;
+    v_uv.y = 1.0 - v_uv.y;
+    return v_pos;
+  }
+}%
+
+
+CCProgram fs %{
+  precision highp float;
+  #include <legacy/output>
+  #include <builtin/uniforms/cc-global>
+
+  in vec4 v_pos;
+  in vec2 v_uv;
+
+  uniform sampler2D _MainTex;
+
+  vec4 frag () {
+    return CCFragOutput(texture(_MainTex, v_uv));
+  }
+}%

@@ -1,0 +1,100 @@
+// Effect Syntax Guide: https://docs.cocos.com/creator/manual/zh/shader/index.html
+// 注意，由于cocos不支持unity的grabpass（抓屏），这个玻璃效果暂时无法实现，请各位老哥先跳过去
+
+CCEffect %{
+  techniques:
+  - name: transparent
+    passes:
+    - vert: vs:vert
+      frag: fs:frag
+      properties: &props
+        _MainTex:    { value: white }
+        _MainTex_ST:   { value: [1, 1, 0, 0] }
+        _BumpMap:    { value: white }
+        _BumpMap_ST:   { value: [1, 1, 0, 0] }
+        _Distortion:            { value: 10.0, editor: { slide: true, range: [0.0, 100.0], step: 1, type: float } }
+        _RefractAmount:            { value: 1.0, editor: { slide: true, range: [0.0, 1.0], step: 0.1, type: float } }
+        _Cubemap:    { value: grey }
+}%
+
+
+CCProgram vs %{
+  precision highp float;
+  #include <builtin/uniforms/cc-global>
+  #include <builtin/uniforms/cc-local>
+  #include <../cc-cg>
+  in vec3 a_position;
+  in vec3 a_normal;
+  in vec4 a_tangent;
+  in vec2 a_texCoord;
+
+  out vec4 v_pos;
+  out vec4 v_uv;
+  out vec4 v_scrPos;
+  out vec4 v_TtoW0;
+  out vec4 v_TtoW1;
+  out vec4 v_TtoW2;
+
+  uniform ConstantV {
+    vec4 _MainTex_ST;
+    vec4 _BumpMap_ST;
+  };
+
+  vec4 vert () {
+    //顶点坐标变换到投影空间
+    vec4 vertex = vec4(a_position, 1.0);
+    v_pos = CCObjectToClipPos(vertex);
+
+    v_scrPos = ComputeGrabScreenPos(v_pos);
+
+    //uv坐标处理
+    v_uv.xy = TRANSFORM_TEX(a_texCoord, _MainTex_ST);
+    v_uv.zw = TRANSFORM_TEX(a_texCoord, _BumpMap_ST);
+
+    //顶点变换到世界坐标
+    vec4 worldPos = (cc_matWorld * vertex);
+    //法线变换到世界空间
+    vec3 worldNormal =  CCObjectToWorldNormal(a_normal);
+    //切线变换到世界空间
+    vec3 worldTangent = CCObjectToWorldDir(a_tangent.xyz);
+    //计算副法线
+    vec3 worldBinormal = cross(worldNormal, worldTangent) * a_tangent.w;
+    
+    v_TtoW0 = vec4(worldTangent.x, worldBinormal.x, worldNormal.x, worldPos.x);  
+    v_TtoW1 = vec4(worldTangent.y, worldBinormal.y, worldNormal.y, worldPos.y);  
+    v_TtoW2 = vec4(worldTangent.z, worldBinormal.z, worldNormal.z, worldPos.z);  
+				
+    return v_pos;
+  }
+}%
+
+
+CCProgram fs %{
+  precision highp float;
+
+  #include <legacy/output>
+  #include <builtin/uniforms/cc-global>
+  #include <../cc-cg>
+
+  in vec4 v_pos;
+  in vec4 v_uv;
+  in vec4 v_TtoW0;
+  in vec4 v_TtoW1;
+  in vec4 v_TtoW2;
+
+  uniform ConstantF {
+    float _BumpScale;
+    float _Distortion;
+    float _RefractAmount;
+  };
+  uniform sampler2D _MainTex;
+  uniform sampler2D _BumpMap;
+  uniform sampler2D _Cubemap;
+
+  vec4 frag () {
+    vec3 worldPos = vec3(v_TtoW0.w, v_TtoW1.w, v_TtoW2.w);
+		vec3 worldViewDir = normalize(CCWorldSpaceViewDir(worldPos.xyz));
+				
+    return CCFragOutput(vec4(1.0));
+  }
+}%

@@ -75,3 +75,15 @@ vec3 ObjSpaceViewDir(vec4 localV)
 #pragma define doClip(value) if(value < 0.0) discard;
 
 #pragma define doLerp(value1, value2, value2Multiplier) mix(value1, value2, value2Multiplier)
+
+vec4 ComputeGrabScreenPos (vec4 pos) {
+	#if UV_STARTS_AT_TOP
+	float scale = -1.0;
+	#else
+	float scale = 1.0;
+	#endif
+	vec4 o = pos * 0.5;
+	o.xy = vec2(o.x, o.y*scale) + o.w;
+	o.zw = pos.zw;
+	return o;
+}
