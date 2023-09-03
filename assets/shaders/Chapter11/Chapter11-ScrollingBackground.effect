@@ -1,0 +1,75 @@
+// Effect Syntax Guide: https://docs.cocos.com/creator/manual/zh/shader/index.html
+
+CCEffect %{
+  techniques:
+  - name: opaque
+    passes:
+    - vert: vs:vert
+      frag: fs:frag   
+      properties: &props
+        _MainTex:    { editor: { displayName: "Base Layer (RGB)" }, value: white }
+        _MainTex_ST:   { value: [1, 1, 0, 0] }
+        _DetailTex:    { editor: { displayName: "2nd Layer (RGB)" }, value: white }
+        _DetailTex_ST:   { value: [1, 1, 0, 0] }
+        _ScrollX:            { value: 10.0 }
+        _Scroll2X:            { value: 1.0 }
+        _Multiplier:            { value: 1.0 }  
+}%
+
+CCProgram vs %{
+  precision highp float;
+  #include <builtin/uniforms/cc-global>
+  #include <builtin/uniforms/cc-local>
+  #include <../cc-cg>
+  in vec3 a_position;
+  in vec2 a_texCoord;
+
+  out vec4 v_pos;
+  out vec4 v_uv;
+
+  uniform ConstantV {
+    vec4 _MainTex_ST;
+    vec4 _DetailTex_ST;
+    float _ScrollX;
+    float _Scroll2X;
+  };
+
+
+  vec4 vert () {
+    //顶点坐标变换到投影空间
+    vec4 vertex = vec4(a_position, 1.0);
+    v_pos = CCObjectToClipPos(vertex);
+
+    //uv坐标处理
+    v_uv.xy = TRANSFORM_TEX(a_texCoord, _MainTex_ST) + fract(vec2(_ScrollX, 0.0) * cc_time.x);
+    v_uv.zw = TRANSFORM_TEX(a_texCoord, _DetailTex_ST) + fract(vec2(_Scroll2X, 0.0) * cc_time.x);
+
+    return v_pos;
+  }
+}%
+
+CCProgram fs %{
+  precision highp float;
+  #include <legacy/output>
+  #include <builtin/uniforms/cc-global>
+  #include <../cc-cg>
+
+  in vec4 v_pos;
+  in vec4 v_uv;
+
+  uniform sampler2D _MainTex;
+  uniform sampler2D _DetailTex;
+
+  uniform ConstantF {
+    float _Multiplier;
+  };
+
+  vec4 frag () {
+    vec4 firstLayer = texture(_MainTex, v_uv.xy);
+    vec4 secondLayer = texture(_DetailTex, v_uv.zw);
+
+    vec4 c = doLerp(firstLayer, secondLayer, secondLayer.a);
+		c.rgb *= _Multiplier;
+    return CCFragOutput(c);
+  }
+}%

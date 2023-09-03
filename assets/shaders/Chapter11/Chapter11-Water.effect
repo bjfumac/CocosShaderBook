@@ -1,0 +1,91 @@
+// Effect Syntax Guide: https://docs.cocos.com/creator/manual/zh/shader/index.html
+
+CCEffect %{
+  techniques:
+  - name: transparent
+    passes:
+    - vert: vs:vert
+      frag: fs:frag
+      rasterizerState:
+        cullMode: None
+      depthStencilState: 
+        depthFunc: less_equal
+        depthTest: true
+        depthWrite: false
+      blendState:
+        targets:
+        - blend: true
+          blendSrc: src_alpha
+          blendDst: one_minus_src_alpha
+          blendSrcAlpha: src_alpha
+          blendDstAlpha: one_minus_src_alpha
+      properties: &props
+        _MainTex:    { value: white }
+        _MainTex_ST:   { value: [1, 1, 0, 0] }
+        _Color:      { value: [1, 1, 1, 1], editor: { type: color } }
+        _Magnitude:    { editor: { displayName: "Distortion Magnitude" }, value: 1.0 }
+        _Frequency:    { editor: { displayName: "Distortion Frequency" }, value: 1.0 }
+        _InvWaveLength:    { editor: { displayName: "Distortion Inverse Wave Length" }, value: 10.0 }
+        _Speed:    { value: 0.5 }
+      
+}%
+
+CCProgram vs %{
+  precision highp float;
+  #include <builtin/uniforms/cc-global>
+  #include <builtin/uniforms/cc-local>
+  #include <../cc-cg>
+  in vec3 a_position;
+  in vec2 a_texCoord;
+
+  out vec4 v_pos;
+  out vec2 v_uv;
+
+  uniform ConstantV {
+    vec4 _MainTex_ST;
+    float _Magnitude;
+    float _Frequency;
+    float _InvWaveLength;
+    float _Speed;
+  };
+
+
+  vec4 vert () {
+    vec4 vertex = vec4(a_position, 1.0);
+    //用正弦曲线扭曲顶点
+    vec4 offset;
+    offset.yzw = vec3(0.0, 0.0, 0.0);
+    offset.x = sin(_Frequency * cc_time.x + vertex.x * _InvWaveLength + vertex.y * _InvWaveLength + vertex.z * _InvWaveLength) * _Magnitude;
+    
+    //顶点坐标变换到投影空间
+    v_pos = CCObjectToClipPos(vertex + offset);
+
+    //uv坐标处理
+    v_uv.xy = TRANSFORM_TEX(a_texCoord, _MainTex_ST);
+    v_uv.xy +=  vec2(0.0, cc_time.x * _Speed);
+
+    return v_pos;
+  }
+}%
+
+CCProgram fs %{
+  precision highp float;
+  #include <legacy/output>
+  #include <builtin/uniforms/cc-global>
+
+  in vec4 v_pos;
+  in vec2 v_uv;
+
+  uniform ConstantF {
+    vec4 _Color;
+  };
+
+
+  uniform sampler2D _MainTex;
+
+  vec4 frag () {
+    vec4 c = texture(_MainTex, v_uv);
+    c *= _Color;
+    return CCFragOutput(c);
+  }
+}%

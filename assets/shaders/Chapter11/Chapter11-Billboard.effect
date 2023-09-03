@@ -1,0 +1,99 @@
+// Effect Syntax Guide: https://docs.cocos.com/creator/manual/zh/shader/index.html
+
+CCEffect %{
+  techniques:
+  - name: transparent
+    passes:
+    - vert: vs:vert
+      frag: fs:frag
+      rasterizerState:
+        cullMode: None
+      depthStencilState: 
+        depthFunc: less_equal
+        depthTest: true
+        depthWrite: false
+      blendState:
+        targets:
+        - blend: true
+          blendSrc: src_alpha
+          blendDst: one_minus_src_alpha
+          blendSrcAlpha: src_alpha
+          blendDstAlpha: one_minus_src_alpha
+      properties: &props
+        _MainTex:    { value: white }
+        _MainTex_ST:   { value: [1, 1, 0, 0] }
+        _Color:      { value: [1, 1, 1, 1], editor: { type: color } }
+        _VerticalBillboarding:    { value: 1.0, editor: { displayName: "Vertical Restraints", slide: true, range: [0.0, 1.0], step: 0.1, type: float } }
+      
+}%
+
+CCProgram vs %{
+  precision highp float;
+  #include <builtin/uniforms/cc-global>
+  #include <builtin/uniforms/cc-local>
+  #include <../cc-cg>
+  in vec3 a_position;
+  in vec2 a_texCoord;
+
+  out vec4 v_pos;
+  out vec2 v_uv;
+
+  uniform ConstantV {
+    vec4 _MainTex_ST;
+    float _VerticalBillboarding;
+  };
+
+
+  vec4 vert () {
+    vec4 vertex = vec4(a_position, 1.0);
+    
+    //先转到局部空间，计算相机在这个空间里的位置
+    vec3 center = vec3(0.0, 0.0, 0.0);
+    vec3 viewer = (cc_matWorldIT * vec4(cc_cameraPos.xyz, 1)).xyz;
+    //计算法线方向，也就是视线方向，因为平面正面永远朝着相机。
+    //下面的代码有点晦涩难懂，书里写的也有点绕，不需要背。
+    //大意是两条线（三个点）确定一个平面，已知法线，还需要另一条线就可以。
+    //然后在局部空间中从(0,1,0)或(0,0,1)中挑一条，通过叉积计算即可。
+    vec3 normalDir = viewer - center;
+
+    normalDir.y =normalDir.y * _VerticalBillboarding;
+    normalDir = normalize(normalDir);
+    
+    vec3 upDir = abs(normalDir.y) > 0.999 ? vec3(0, 0, 1) : vec3(0, 1, 0);
+    vec3 rightDir = normalize(cross(upDir, normalDir));
+    upDir = normalize(cross(normalDir, rightDir));
+    
+    vec3 centerOffs = vertex.xyz - center;
+    vec3 localPos = center + rightDir * centerOffs.x + upDir * centerOffs.y + normalDir * centerOffs.z;
+    
+    //顶点坐标变换到投影空间
+    v_pos = CCObjectToClipPos(vec4(localPos, 1));
+
+    //uv坐标处理
+    v_uv.xy = TRANSFORM_TEX(a_texCoord, _MainTex_ST);
+
+    return v_pos;
+  }
+}%
+
+CCProgram fs %{
+  precision highp float;
+  #include <legacy/output>
+  #include <builtin/uniforms/cc-global>
+
+  in vec4 v_pos;
+  in vec2 v_uv;
+
+  uniform ConstantF {
+    vec4 _Color;
+  };
+
+
+  uniform sampler2D _MainTex;
+
+  vec4 frag () {
+    vec4 c = texture(_MainTex, v_uv);
+    c *= _Color;
+    return CCFragOutput(c);
+  }
+}%

@@ -1,0 +1,184 @@
+// Effect Syntax Guide: https://docs.cocos.com/creator/manual/zh/shader/index.html
+// 注意：由于Unity和Cosos的渲染管线不太一样，无法按照Unity的方式实现阴影。建议只看下书中的阴影实现原理即可
+// 采用阴影映射纹理shadow map实现，需要把场景的阴影模式配置为shadow map，这种技术的缺点是移动平台纹理尺寸限制在2048x2048，所以阴影容易出现锯齿。
+// 目前只实现了阴影发生器，暂时没有实现阴影接收器，所以只能给cocos自带的mat打阴影，后面找时间再补上。
+// 暂时只对主方向光有效
+CCEffect %{
+  techniques:
+  - name: transparent
+    passes:
+    #计算主光源（一般是距离最近的平行光）和环境光
+    - vert: vs-main:vert
+      frag: fs-main:frag
+      rasterizerState:
+        cullMode: None
+      properties: &props
+        _MainTex:    { value: white }
+        _MainTex_ST:   { value: [1, 1, 0, 0] }
+        _Color:      { value: [1, 1, 1, 1], editor: { type: color } }
+        _Magnitude:    { editor: { displayName: "Distortion Magnitude" }, value: 1.0 }
+        _Frequency:    { editor: { displayName: "Distortion Frequency" }, value: 1.0 }
+        _InvWaveLength:    { editor: { displayName: "Distortion Inverse Wave Length" }, value: 10.0 }
+        _Speed:    { value: 0.5 }
+    #面板中勾选Shadow Casting Mode后，挂载这个pass可以实现阴影计算
+    #原理是把相机放到光源位置去观察物体，看不到的区域就是阴影区域，将这些区域保存在shadow map中
+    - &shadow-caster
+      vert: shadow-caster-vs:vert
+      frag: shadow-caster-fs:frag
+      phase: shadow-caster
+      rasterizerState:
+        cullMode: None #正面为光源可打到的区域，所以剔除掉，只留下光线打不到的区域进行阴影绘制
+      properties: &props
+        _Magnitude:    { editor: { displayName: "Distortion Magnitude" }, value: 1.0 }
+        _Frequency:    { editor: { displayName: "Distortion Frequency" }, value: 1.0 }
+        _InvWaveLength:    { editor: { displayName: "Distortion Inverse Wave Length" }, value: 10.0 }
+        _Speed:    { value: 0.5 }
+      
+}%
+
+
+CCProgram vs-main %{
+  precision highp float;
+  #include <builtin/uniforms/cc-global>
+  #include <builtin/uniforms/cc-local>
+  #include <../cc-cg>
+
+  in vec3 a_position;
+  in vec2 a_texCoord;
+
+  out vec4 v_pos;
+  out vec2 v_uv;
+
+  uniform ConstantV {
+    vec4 _MainTex_ST;
+    float _Magnitude;
+    float _Frequency;
+    float _InvWaveLength;
+    float _Speed;
+  };
+
+
+  vec4 vert () {
+    vec4 vertex = vec4(a_position, 1.0);
+    //用正弦曲线扭曲顶点
+    vec4 offset;
+    offset.yzw = vec3(0.0, 0.0, 0.0);
+    offset.x = sin(_Frequency * cc_time.x + vertex.x * _InvWaveLength + vertex.y * _InvWaveLength + vertex.z * _InvWaveLength) * _Magnitude;
+				
+    v_pos = CCObjectToClipPos(vertex + offset);
+   
+    v_uv.xy = TRANSFORM_TEX(a_texCoord, _MainTex_ST);
+
+    return v_pos;
+  }
+}%
+
+
+CCProgram fs-main %{
+  precision highp float;
+  #include <legacy/output>
+  #include <builtin/uniforms/cc-global>
+
+  in vec4 v_pos;
+  in vec2 v_uv;
+
+  uniform ConstantF {
+    vec4 _Color;
+  };
+
+
+  uniform sampler2D _MainTex;
+
+  vec4 frag () {
+    vec4 c = texture(_MainTex, v_uv);
+    c *= _Color;
+    return CCFragOutput(c);
+  }
+}%
+
+
+CCProgram shadow-caster-vs %{
+  precision highp float;
+  #include <builtin/uniforms/cc-global>
+  #include <builtin/uniforms/cc-local>
+  #include <legacy/shadow-map-base>
+  
+  in vec3 a_position;
+  in vec3 a_normal;
+  #if CC_RECEIVE_SHADOW
+    in vec4 a_localShadowBiasAndProbeId;
+  #endif
+
+  out highp vec4 v_localPos;
+  out vec3 v_worldPos;
+  out vec4 v_normal;
+  out highp vec2 v_clip_depth;
+  out highp vec4 v_clipPos;
+  out mediump vec4 v_shadowBiasAndProbeId;
+
+  uniform ConstantV {
+    float _Magnitude;
+    float _Frequency;
+    float _InvWaveLength;
+    float _Speed;
+  };
+
+  vec4 vert()
+  {
+    vec4 vertex = vec4(a_position, 1.0);
+    
+    //用正弦曲线扭曲顶点
+    vec4 offset;
+    offset.yzw = vec3(0.0, 0.0, 0.0);
+    offset.x = sin(_Frequency * cc_time.x + vertex.x * _InvWaveLength + vertex.y * _InvWaveLength + vertex.z * _InvWaveLength) * _Magnitude;
+    vertex = vertex + offset;
+
+    //计算顶点的世界空间坐标
+    v_worldPos = (cc_matWorld * vertex).xyz;
+    //计算灯光投影下的顶点坐标
+    v_clipPos = cc_matLightViewProj * vec4(v_worldPos.xyz, 1.0);
+    //预留的阴影接收器代码
+    #if CC_RECEIVE_SHADOW
+      v_shadowBiasAndProbeId.xy = a_localShadowBiasAndProbeId.xy;
+    #endif
+    //输出灯光投影空间的深度信息，并保持其齐次坐标属性（带着w）。
+    v_clip_depth = v_clipPos.zw;
+    //输出灯光投影空间的顶点坐标
+    return v_clipPos;
+  }
+  
+  
+}%
+
+
+CCProgram shadow-caster-fs %{
+  precision highp float;
+  #if CC_SHADOWMAP_USE_LINEAR_DEPTH
+    #include <builtin/functionalities/shadow-map>
+  #endif
+  #include <builtin/uniforms/cc-shadow>
+  
+  in highp vec2 v_clip_depth;
+  in vec3 v_worldPos;
+
+  vec4 frag () {
+    vec4 depthColor;
+    //把投影坐标中的z变换到NDC(Normalized Device Coordinate)坐标中，即z/w，范围[0, 1]
+    highp float clipDepth = v_clip_depth.x / v_clip_depth.y * 0.5 + 0.5;
+    //阴影图采用线性深度
+    #if CC_SHADOWMAP_USE_LINEAR_DEPTH
+      //如果是聚光灯采用这个算法
+      if (cc_shadowLPNNInfo.x == 2.0) {
+        clipDepth = CCGetLinearDepth(v_worldPos.xyz);
+      }
+    #endif
+    //根据阴影图格式选择像素解析算法
+    #if CC_SHADOWMAP_FORMAT == SHADOWMAP_FORMAT_RGBA8
+      depthColor = packDepthToRGBA(clipDepth);
+    #else
+      depthColor = vec4(clipDepth, 1.0, 1.0, 1.0);
+    #endif
+    return depthColor;
+  }
+
+}%

@@ -1,0 +1,93 @@
+// Effect Syntax Guide: https://docs.cocos.com/creator/manual/zh/shader/index.html
+
+CCEffect %{
+  techniques:
+  - name: transparent
+    passes:
+    - vert: vs:vert
+      frag: fs:frag
+      depthStencilState: 
+        depthFunc: less_equal
+        depthTest: true
+        depthWrite: false
+      blendState:
+        targets:
+        - blend: true
+          blendSrc: src_alpha
+          blendDst: one_minus_src_alpha
+          blendSrcAlpha: src_alpha
+          blendDstAlpha: one_minus_src_alpha
+      properties: &props
+        _MainTex:    { value: white }
+        _MainTex_ST:   { value: [1, 1, 0, 0] }
+        _Color:      { value: [1, 1, 1, 1], editor: { type: color } }
+        _HorizontalAmount:            { value: 10.0 }
+        _VerticalAmount:            { value: 1.0 }
+        _Speed:            { value: 30.0, editor: { slide: true, range: [1.0, 100.0], step: 1, type: float } }
+      
+}%
+
+CCProgram vs %{
+  precision highp float;
+  #include <builtin/uniforms/cc-global>
+  #include <builtin/uniforms/cc-local>
+  #include <../cc-cg>
+  in vec3 a_position;
+  in vec2 a_texCoord;
+
+  out vec4 v_pos;
+  out vec2 v_uv;
+
+  uniform ConstantV {
+    vec4 _MainTex_ST;
+  };
+
+
+  vec4 vert () {
+    //顶点坐标变换到投影空间
+    vec4 vertex = vec4(a_position, 1.0);
+    v_pos = CCObjectToClipPos(vertex);
+
+    //uv坐标处理
+    v_uv.xy = TRANSFORM_TEX(a_texCoord, _MainTex_ST);
+
+    return v_pos;
+  }
+}%
+
+CCProgram fs %{
+  precision highp float;
+  #include <legacy/output>
+  #include <builtin/uniforms/cc-global>
+
+  in vec4 v_pos;
+  in vec2 v_uv;
+
+  uniform sampler2D _MainTex;
+
+  uniform Constant {
+    vec4 _Color;
+    float _HorizontalAmount;
+    float _VerticalAmount;
+    float _Speed;
+  };
+
+  vec4 frag () {
+    //计算经历的时间
+    float time = floor(cc_time.x * _Speed);  
+    //把贴图分成_HorizontalAmount x _VerticalAmount个方格子
+    //然后根据时间计算现在该显示哪个格子，利用了贴图的repeat模式
+    float row = floor(time / _HorizontalAmount);
+    float column = time - row * _HorizontalAmount;
+    
+    //贴图上选中垂直翻转或者把-row改成row，否则图像是反的。
+    vec2 uv = v_uv + vec2(column, row);
+    uv.x /=  _HorizontalAmount;
+    uv.y /= _VerticalAmount;
+
+    //绘制对应的小格子
+    vec4 c = texture(_MainTex, uv);
+    c *= _Color;
+    return CCFragOutput(c);
+  }
+}%
