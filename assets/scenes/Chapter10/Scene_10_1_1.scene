@@ -21,10 +21,14 @@
       },
       {
         "__id__": 5
+      },
+      {
+        "__id__": 7
       }
     ],
     "_active": true,
     "_components": [],
+    "_prefab": null,
     "_lpos": {
       "__type__": "cc.Vec3",
       "x": 0,
@@ -54,7 +58,7 @@
     },
     "autoReleaseAssets": false,
     "_globals": {
-      "__id__": 7
+      "__id__": 9
     },
     "_id": "a2a91cdf-db3f-4c42-a8c4-8dfb1c4bb042"
   },
@@ -246,27 +250,113 @@
     "_id": "7dWQTpwS5LrIHnc1zAPUtf"
   },
   {
+    "__type__": "cc.Node",
+    "_name": "----注意事项----",
+    "_objFlags": 0,
+    "__editorExtras__": {},
+    "_parent": {
+      "__id__": 1
+    },
+    "_children": [
+      {
+        "__id__": 8
+      }
+    ],
+    "_active": true,
+    "_components": [],
+    "_prefab": null,
+    "_lpos": {
+      "__type__": "cc.Vec3",
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "_lrot": {
+      "__type__": "cc.Quat",
+      "x": 0,
+      "y": 0,
+      "z": 0,
+      "w": 1
+    },
+    "_lscale": {
+      "__type__": "cc.Vec3",
+      "x": 1,
+      "y": 1,
+      "z": 1
+    },
+    "_mobility": 0,
+    "_layer": 1073741824,
+    "_euler": {
+      "__type__": "cc.Vec3",
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "_id": "18pyCmMr9AEJ6Q1osYW7rB"
+  },
+  {
+    "__type__": "cc.Node",
+    "_name": "这个场景里就是什么都没有，是个空的cubemap场景配置",
+    "_objFlags": 0,
+    "__editorExtras__": {},
+    "_parent": {
+      "__id__": 7
+    },
+    "_children": [],
+    "_active": true,
+    "_components": [],
+    "_prefab": null,
+    "_lpos": {
+      "__type__": "cc.Vec3",
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "_lrot": {
+      "__type__": "cc.Quat",
+      "x": 0,
+      "y": 0,
+      "z": 0,
+      "w": 1
+    },
+    "_lscale": {
+      "__type__": "cc.Vec3",
+      "x": 1,
+      "y": 1,
+      "z": 1
+    },
+    "_mobility": 0,
+    "_layer": 1073741824,
+    "_euler": {
+      "__type__": "cc.Vec3",
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "_id": "d4CDZZVlBIeqcM0gIQG25i"
+  },
+  {
     "__type__": "cc.SceneGlobals",
     "ambient": {
-      "__id__": 8
-    },
-    "shadows": {
-      "__id__": 9
-    },
-    "_skybox": {
       "__id__": 10
     },
-    "fog": {
+    "shadows": {
       "__id__": 11
     },
-    "octree": {
+    "_skybox": {
       "__id__": 12
     },
-    "skin": {
+    "fog": {
       "__id__": 13
     },
-    "lightProbeInfo": {
+    "octree": {
       "__id__": 14
+    },
+    "skin": {
+      "__id__": 15
+    },
+    "lightProbeInfo": {
+      "__id__": 16
     },
     "bakedWithStationaryMainLight": false,
     "bakedWithHighpLightmap": false
@@ -278,14 +368,14 @@
       "x": 0.365754,
       "y": 0.568107,
       "z": 0.908079,
-      "w": 0
+      "w": 0.520833125
     },
     "_skyColor": {
       "__type__": "cc.Vec4",
       "x": 0.365754,
       "y": 0.568107,
       "z": 0.908079,
-      "w": 0
+      "w": 0.520833125
     },
     "_skyIllumHDR": 20000,
     "_skyIllum": 20000,

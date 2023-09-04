@@ -442,7 +442,7 @@
   },
   {
     "__type__": "cc.Node",
-    "_name": "该章后续的程序纹理小节也暂时不实现",
+    "_name": "该章后续的程序纹理小节和shader无关也暂时不实现",
     "_objFlags": 0,
     "__editorExtras__": {},
     "_parent": {

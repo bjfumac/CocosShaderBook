@@ -39,9 +39,6 @@
       },
       {
         "__id__": 22
-      },
-      {
-        "__id__": 23
       }
     ],
     "_active": true,
@@ -76,7 +73,7 @@
     },
     "autoReleaseAssets": false,
     "_globals": {
-      "__id__": 24
+      "__id__": 26
     },
     "_id": "044f138b-7205-48bf-abb5-b2ee4422703e"
   },
@@ -769,11 +766,62 @@
   },
   {
     "__type__": "cc.Node",
-    "_name": "摆位置太麻烦没做相机动画",
+    "_name": "----注意事项----",
     "_objFlags": 0,
     "__editorExtras__": {},
     "_parent": {
       "__id__": 1
+    },
+    "_children": [
+      {
+        "__id__": 23
+      },
+      {
+        "__id__": 24
+      },
+      {
+        "__id__": 25
+      }
+    ],
+    "_active": true,
+    "_components": [],
+    "_prefab": null,
+    "_lpos": {
+      "__type__": "cc.Vec3",
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "_lrot": {
+      "__type__": "cc.Quat",
+      "x": 0,
+      "y": 0,
+      "z": 0,
+      "w": 1
+    },
+    "_lscale": {
+      "__type__": "cc.Vec3",
+      "x": 1,
+      "y": 1,
+      "z": 1
+    },
+    "_mobility": 0,
+    "_layer": 1073741824,
+    "_euler": {
+      "__type__": "cc.Vec3",
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "_id": "b38LZYenBJc769BvAdjjTF"
+  },
+  {
+    "__type__": "cc.Node",
+    "_name": "摆位置太麻烦没做相机动画",
+    "_objFlags": 0,
+    "__editorExtras__": {},
+    "_parent": {
+      "__id__": 22
     },
     "_children": [],
     "_active": true,
@@ -814,7 +862,7 @@
     "_objFlags": 0,
     "__editorExtras__": {},
     "_parent": {
-      "__id__": 1
+      "__id__": 22
     },
     "_children": [],
     "_active": true,
@@ -850,27 +898,68 @@
     "_id": "9c9y3lEepGj4/TBpAtbxdf"
   },
   {
+    "__type__": "cc.Node",
+    "_name": "需要运行起来看效果",
+    "_objFlags": 0,
+    "__editorExtras__": {},
+    "_parent": {
+      "__id__": 22
+    },
+    "_children": [],
+    "_active": true,
+    "_components": [],
+    "_prefab": null,
+    "_lpos": {
+      "__type__": "cc.Vec3",
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "_lrot": {
+      "__type__": "cc.Quat",
+      "x": 0,
+      "y": 0,
+      "z": 0,
+      "w": 1
+    },
+    "_lscale": {
+      "__type__": "cc.Vec3",
+      "x": 1,
+      "y": 1,
+      "z": 1
+    },
+    "_mobility": 0,
+    "_layer": 1073741824,
+    "_euler": {
+      "__type__": "cc.Vec3",
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "_id": "c1GN25eddMfLRRDITRCA3x"
+  },
+  {
     "__type__": "cc.SceneGlobals",
     "ambient": {
-      "__id__": 25
-    },
-    "shadows": {
-      "__id__": 26
-    },
-    "_skybox": {
       "__id__": 27
     },
-    "fog": {
+    "shadows": {
       "__id__": 28
     },
-    "octree": {
+    "_skybox": {
       "__id__": 29
     },
-    "skin": {
+    "fog": {
       "__id__": 30
     },
-    "lightProbeInfo": {
+    "octree": {
       "__id__": 31
+    },
+    "skin": {
+      "__id__": 32
+    },
+    "lightProbeInfo": {
+      "__id__": 33
     },
     "bakedWithStationaryMainLight": false,
     "bakedWithHighpLightmap": false
