@@ -12,8 +12,7 @@
   "_defines": [
     {
       "DIRECTIONAL_COOKIE": true,
-      "DIRECTIONAL": true,
-      "CUSTOM_RECEIVE_SHADOW": 1
+      "DIRECTIONAL": true
     },
     {
       "DIRECTIONAL_COOKIE": true,

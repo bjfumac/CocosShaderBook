@@ -1,7 +1,6 @@
 // Effect Syntax Guide: https://docs.cocos.com/creator/manual/zh/shader/index.html
-// 注意：由于Unity和Cosos的渲染管线不太一样，无法按照Unity的方式实现阴影。建议只看下书中的阴影实现原理即可
+// 注意：由于Unity和Cosos的渲染管线不太一样，无法按照Unity的方式实现阴影。建议只看下书中的阴影实现原理即可。
 // 采用阴影映射纹理shadow map实现，需要把场景的阴影模式配置为shadow map，这种技术的缺点是移动平台纹理尺寸限制在2048x2048，所以阴影容易出现锯齿。
-// 目前只实现了阴影发生器，暂时没有实现阴影接收器，所以只能给cocos自带的mat打阴影，后面找时间再补上。
 // 暂时只对主方向光有效
 CCEffect %{
   techniques:
@@ -78,7 +77,13 @@ CCProgram fs-main %{
   precision highp float;
   #include <legacy/output>
   #include <builtin/uniforms/cc-global>
+  #include <builtin/functionalities/shadow-map>
   #include <../cc-cg>
+  //自定义接收阴影宏，因为绘制阴影调用内置方法所以必须同时定义CC_RECEIVE_SHADOW
+  #pragma define-meta CUSTOM_RECEIVE_SHADOW range([0, 1])
+  #if CUSTOM_RECEIVE_SHADOW
+  #pragma define CC_RECEIVE_SHADOW 1
+  #endif
 
   in vec4 v_pos;
   in vec3 v_worldNormal;
@@ -90,6 +95,7 @@ CCProgram fs-main %{
     float _Gloss;
   };
 
+
   vec4 frag () {
     //获取世界空间下的法线
     vec3 worldNormal =  normalize(v_worldNormal);
@@ -99,7 +105,8 @@ CCProgram fs-main %{
     //获取环境光
     vec3 ambient = cc_ambientSky.xyz;
     //获取漫反射
-    vec3 diffuse = cc_mainLitColor.rgb * _Diffuse.rgb * max(0.0, dot(worldNormal, worldLightDir));
+    float normalDotLightdir = max(0.0, dot(worldNormal, worldLightDir));
+    vec3 diffuse = cc_mainLitColor.rgb * _Diffuse.rgb * normalDotLightdir;
     //计算视线方向
     vec3 viewDir = normalize(CCWorldSpaceViewDir(v_worldPos));
     //计算高光
@@ -108,7 +115,16 @@ CCProgram fs-main %{
     vec3 specular = cc_mainLitColor.rgb * _Specular.rgb * pow(max(0.0, dot(worldNormal, halfDir)), _Gloss);
     //设置衰减值，平行光不衰减
     float atten = 1.0;
-    return CCFragOutput(vec4(ambient + (diffuse + specular) * atten, 1.0));
+    //计算阴影强度，调用了cocos内置方法
+    float shadow = 1.0;
+    #if CUSTOM_RECEIVE_SHADOW
+      //只有看的见的面才需要绘制阴影（性能优化）
+      if (normalDotLightdir > 0.0) {
+        shadow = CCCSMFactorBase(v_worldPos.xyz, worldNormal.xyz, vec2(0.0));
+      }
+    #endif
+    
+    return CCFragOutput(vec4(ambient + (diffuse + specular) * atten * shadow , 1.0));
   }
 }%
 
@@ -239,9 +255,6 @@ CCProgram shadow-caster-vs %{
   
   in vec3 a_position;
   in vec3 a_normal;
-  #if CC_RECEIVE_SHADOW
-    in vec4 a_localShadowBiasAndProbeId;
-  #endif
 
   out highp vec4 v_localPos;
   out vec3 v_worldPos;
@@ -262,9 +275,6 @@ CCProgram shadow-caster-vs %{
     //计算灯光投影下的顶点坐标
     v_clipPos = cc_matLightViewProj * vec4(v_worldPos.xyz, 1.0);
     //预留的阴影接收器代码
-    #if CC_RECEIVE_SHADOW
-      v_shadowBiasAndProbeId.xy = a_localShadowBiasAndProbeId.xy;
-    #endif
     //输出灯光投影空间的深度信息，并保持其齐次坐标属性（带着w）。
     v_clip_depth = v_clipPos.zw;
     //输出灯光投影空间的顶点坐标
