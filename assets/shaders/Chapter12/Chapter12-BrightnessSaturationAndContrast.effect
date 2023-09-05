@@ -1,0 +1,84 @@
+// Copyright (c) 2017-2020 Xiamen Yaji Software Co., Ltd.
+
+CCEffect %{
+  techniques:
+  - passes:
+    - vert: vs:vert
+      frag: fs:frag
+      pass: post-process #后处理的专用pass类型
+      rasterizerState:
+        cullMode: none #Cull Off
+      depthStencilState:
+        depthTest: true #ZTest Always
+        depthWrite: false #ZWrite Off
+      properties:
+        _Brightness: { value: 1.0, editor: { slide: true, range: [0.0, 3.0], step: 0.1, type: float } }
+        _Saturation: { value: 1.0, editor: { slide: true, range: [0.0, 3.0], step: 0.1, type: float } }
+        _Contrast: { value: 1.0, editor: { slide: true, range: [0.0, 3.0], step: 0.1, type: float } }
+
+}%
+
+
+CCProgram vs %{
+  precision highp float;
+  
+  #include <builtin/uniforms/cc-global>
+  #include <builtin/uniforms/cc-local>
+
+  in vec3 a_position;
+  in vec2 a_texCoord;
+
+  out vec2 v_uv;
+
+  vec4 vert () {
+    //顶点处理比较省事，直接输出即可，无需变换空间
+    vec4 vertex = vec4(a_position, 1.0);
+
+    v_uv = a_texCoord;
+
+    return vertex;
+  }
+
+}%
+
+CCProgram fs %{
+  precision highp float;
+
+  #include <legacy/output>
+  #include <../cc-cg>
+
+  in vec2 v_uv;
+
+  uniform ConstantF {
+    float _Brightness;
+    float _Saturation;
+    float _Contrast;
+  };
+  
+  //设置blit采样频率，见 https://docs.cocos.com/creator/manual/zh/render-pipeline/custom-pipeline.html
+  //inputTexture是cocos默认的blit截图，照抄即可
+  #pragma rate inputTexture pass
+  uniform sampler2D inputTexture;
+
+  vec4 frag () {
+    //blit截图中采样
+    vec4 renderTex = texture(inputTexture, v_uv); 
+
+    //应用亮度
+    vec3 finalColor = renderTex.rgb * _Brightness;
+				
+    //应用饱和度
+    float luminance = 0.2125 * renderTex.r + 0.7154 * renderTex.g + 0.0721 * renderTex.b;
+    vec3 luminanceColor = vec3(luminance, luminance, luminance);
+    finalColor = doLerp(luminanceColor, finalColor, _Saturation);
+				
+    //应用对比度
+    vec3 avgColor = vec3(0.5, 0.5, 0.5);
+    finalColor = doLerp(avgColor, finalColor, _Contrast);
+
+    //输出最终颜色
+    return vec4(finalColor, renderTex.a); 
+  }
+
+  
+}%
