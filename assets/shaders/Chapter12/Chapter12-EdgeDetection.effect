@@ -1,0 +1,129 @@
+// Copyright (c) 2017-2020 Xiamen Yaji Software Co., Ltd.
+
+CCEffect %{
+  techniques:
+  - passes:
+    - vert: vs:vert
+      frag: fs:frag
+      pass: post-process #后处理的专用pass类型
+      rasterizerState:
+        cullMode: none #Cull Off
+      depthStencilState:
+        depthTest: true #ZTest Always
+        depthWrite: false #ZWrite Off
+      properties:
+        _EdgeOnly: { value: 0.0, editor: { slide: true, range: [0.0, 1.0], step: 0.1, type: float } }
+        _EdgeColor:      { value: [1, 1, 1, 1], editor: { type: color } }
+        _BackgroundColor:      { value: [1, 1, 1, 1], editor: { type: color } }
+
+}%
+
+
+CCProgram vs %{
+  precision highp float;
+  
+  #include <builtin/uniforms/cc-global>
+  #include <builtin/uniforms/cc-local>
+
+  in vec3 a_position;
+  in vec2 a_texCoord;
+
+  out vec2 v_uv[9];
+
+  #pragma rate inputTexture pass
+  uniform sampler2D inputTexture;
+
+  vec4 vert () {
+    //顶点处理比较省事，直接输出即可，无需变换空间
+    vec4 vertex = vec4(a_position, 1.0);
+    
+    //设定Sobel算子
+    vec2 uv = a_texCoord;
+    vec4 texSize = vec4(1.0/1280.0, 1.0/720.0, 1280.0, 720.0);
+    v_uv[0] = uv + texSize.xy * vec2(-1, -1);
+    v_uv[1] = uv + texSize.xy * vec2(0, -1);
+    v_uv[2] = uv + texSize.xy * vec2(1, -1);
+    v_uv[3] = uv + texSize.xy * vec2(-1, 0);
+    v_uv[4] = uv + texSize.xy * vec2(0, 0);
+    v_uv[5] = uv + texSize.xy * vec2(1, 0);
+    v_uv[6] = uv + texSize.xy * vec2(-1, 1);
+    v_uv[7] = uv + texSize.xy * vec2(0, 1);
+    v_uv[8] = uv + texSize.xy * vec2(1, 1);
+
+    return vertex;
+  }
+
+}%
+
+CCProgram fs %{
+  precision highp float;
+
+  #include <legacy/output>
+  #include <../cc-cg>
+
+  in vec2 v_uv[9];
+
+  uniform ConstantF {
+    vec4 _EdgeColor;
+    vec4 _BackgroundColor;
+    float _EdgeOnly;
+  };
+  
+  //设置blit采样频率，见 https://docs.cocos.com/creator/manual/zh/render-pipeline/custom-pipeline.html
+  //inputTexture是cocos默认的blit截图，照抄即可
+  #pragma rate inputTexture pass
+  uniform sampler2D inputTexture;
+
+  float luminance(vec4 color) {
+    return  0.2125 * color.r + 0.7154 * color.g + 0.0721 * color.b; 
+  }
+  
+  float Sobel(sampler2D tex, vec2 uv[9]) {
+    //低版本opengl只能这么初始化数组
+    float Gx[9];
+    Gx[0] = -1.0;
+    Gx[1] = 0.0;
+    Gx[2] = 1.0;
+    Gx[3] = -2.0;
+    Gx[4] = 0.0;
+    Gx[5] = 2.0;
+    Gx[6] = -1.0;
+    Gx[7] = 0.0;
+    Gx[8] = 1.0;
+
+    float Gy[9];
+    Gy[0] = -1.0;
+    Gy[1] = -2.0;
+    Gy[2] = -1.0;
+    Gy[3] = 0.0;
+    Gy[4] = 0.0;
+    Gy[5] = 0.0;
+    Gy[6] = 1.0;
+    Gy[7] = 2.0;
+    Gy[8] = 1.0;
+
+    
+    float texColor;
+    float edgeX = 0.0;
+    float edgeY = 0.0;
+    for (int it = 0; it < 9; it++) {
+      texColor = luminance(texture(tex, uv[it]));
+      edgeX += texColor * Gx[it];
+      edgeY += texColor * Gy[it];
+    }
+    
+    float edge = 1.0 - abs(edgeX) - abs(edgeY);
+    
+    return edge;
+  }
+
+  vec4 frag () {
+    float edge = Sobel(inputTexture, v_uv);
+				
+    vec4 withEdgeColor = doLerp(_EdgeColor, texture(inputTexture, v_uv[4]), edge);
+    vec4 onlyEdgeColor = doLerp(_EdgeColor, _BackgroundColor, edge);
+    return doLerp(withEdgeColor, onlyEdgeColor, _EdgeOnly);
+  }
+
+  
+}%
