@@ -1,0 +1,103 @@
+// Copyright (c) 2017-2020 Xiamen Yaji Software Co., Ltd.
+//注意：需要手动通过ts代码设定EdgeDetectionMat中的_ScreenWidth和_ScreenHeight为屏幕分辨率
+CCEffect %{
+  techniques:
+  - passes:
+    #模糊pass，unity中用两个pass，但是在cocos中写到一起只有第一个会生效，所以合并2个pass代码到一起，还能提高性能
+    - vert: vs:vert
+      frag: fs:frag
+      pass: post-process #后处理的专用pass类型
+      properties: &props
+        _BlurSize: { value: 0.0, editor: { slide: true, range: [0.0, 8.0], step: 0.1, type: float } }
+        #低版本的Opengl不支持类似Unity里的_MainTex_TexelSize，所以需要手动传分辨率
+        _ScreenWidth: { value: 1280.0 }
+        _ScreenHeight: { value: 720.0 }
+        
+
+}%
+
+CCProgram vs %{
+  precision highp float;
+  
+  #include <builtin/uniforms/cc-global>
+  #include <builtin/uniforms/cc-local>
+
+  in vec3 a_position;
+  in vec2 a_texCoord;
+
+  out vec2 v_uv[9];
+
+  uniform ConstantV {
+    float _ScreenWidth;
+    float _ScreenHeight;
+    float _BlurSize;
+  };
+
+  #pragma rate inputTexture pass
+  uniform sampler2D inputTexture;
+
+  vec4 vert () {
+    //顶点处理比较省事，直接输出即可，无需变换空间
+    vec4 vertex = vec4(a_position, 1.0);
+    
+    vec2 uv = a_texCoord;
+    
+    //unity中的_MainTex_TexelSize = Vector4(1 / width, 1 / height, width, height)
+    vec4 texSize = vec4(1.0/_ScreenWidth, 1.0/_ScreenHeight, _ScreenWidth, _ScreenHeight);
+    
+    //高斯核卷积
+    v_uv[0] = uv;
+    //垂直卷积
+    v_uv[1] = uv + vec2(0.0, texSize.y * 1.0) * _BlurSize;
+    v_uv[2] = uv - vec2(0.0, texSize.y * 1.0) * _BlurSize;
+    v_uv[3] = uv + vec2(0.0, texSize.y * 2.0) * _BlurSize;
+    v_uv[4] = uv - vec2(0.0, texSize.y * 2.0) * _BlurSize;
+    //水平卷积
+    v_uv[5] = uv + vec2(texSize.x * 1.0, 0.0) * _BlurSize;
+    v_uv[6] = uv - vec2(texSize.x * 1.0, 0.0) * _BlurSize;
+    v_uv[7] = uv + vec2(texSize.x * 2.0, 0.0) * _BlurSize;
+    v_uv[8] = uv - vec2(texSize.x * 2.0, 0.0) * _BlurSize;
+
+    return vertex;
+  }
+
+}%
+
+
+CCProgram fs %{
+  precision highp float;
+
+  #include <legacy/output>
+  #include <../cc-cg>
+
+  in vec2 v_uv[9];
+  
+  //设置blit采样频率，见 https://docs.cocos.com/creator/manual/zh/render-pipeline/custom-pipeline.html
+  //inputTexture是cocos默认的blit截图，照抄即可
+  #pragma rate inputTexture pass
+  uniform sampler2D inputTexture;
+
+  vec4 frag () {
+    float weight[3];
+    weight[0] = 0.4026;
+    weight[1] = 0.2442;
+    weight[2] = 0.0545;
+
+    //高斯像素混合
+    vec3 sum = texture(inputTexture, v_uv[0]).rgb * weight[0];
+    //垂直混合
+    for (int it = 1; it < 3; it++) {
+      sum += texture(inputTexture, v_uv[it*2-1]).rgb * weight[it];
+      sum += texture(inputTexture, v_uv[it*2]).rgb * weight[it];
+    }
+    //水平混合
+    for (int it = 3; it < 5; it++) {
+      sum += texture(inputTexture, v_uv[it*2-1]).rgb * weight[it];
+      sum += texture(inputTexture, v_uv[it*2]).rgb * weight[it];
+    }
+    
+    return vec4(sum, 1.0);
+  }
+
+  
+}%
