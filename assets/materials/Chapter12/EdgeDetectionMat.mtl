@@ -25,6 +25,7 @@
   ],
   "_props": [
     {
+      "_EdgeOnly": 0.3,
       "_EdgeColor": {
         "__type__": "cc.Color",
         "r": 0,

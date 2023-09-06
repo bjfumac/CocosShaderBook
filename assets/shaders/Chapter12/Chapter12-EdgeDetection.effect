@@ -1,5 +1,5 @@
 // Copyright (c) 2017-2020 Xiamen Yaji Software Co., Ltd.
-
+//注意：需要手动通过ts代码设定EdgeDetectionMat中的_ScreenWidth和_ScreenHeight为屏幕分辨率
 CCEffect %{
   techniques:
   - passes:
@@ -15,6 +15,9 @@ CCEffect %{
         _EdgeOnly: { value: 0.0, editor: { slide: true, range: [0.0, 1.0], step: 0.1, type: float } }
         _EdgeColor:      { value: [1, 1, 1, 1], editor: { type: color } }
         _BackgroundColor:      { value: [1, 1, 1, 1], editor: { type: color } }
+        #低版本的Opengl不支持类似Unity里的_MainTex_TexelSize，所以需要手动传分辨率
+        _ScreenWidth: { value: 1280.0 }
+        _ScreenHeight: { value: 720.0 }
 
 }%
 
@@ -30,6 +33,11 @@ CCProgram vs %{
 
   out vec2 v_uv[9];
 
+  uniform ConstantV {
+    float _ScreenWidth;
+    float _ScreenHeight;
+  };
+
   #pragma rate inputTexture pass
   uniform sampler2D inputTexture;
 
@@ -37,9 +45,12 @@ CCProgram vs %{
     //顶点处理比较省事，直接输出即可，无需变换空间
     vec4 vertex = vec4(a_position, 1.0);
     
-    //设定Sobel算子
     vec2 uv = a_texCoord;
-    vec4 texSize = vec4(1.0/1280.0, 1.0/720.0, 1280.0, 720.0);
+    
+    //unity中的_MainTex_TexelSize = Vector4(1 / width, 1 / height, width, height)
+    vec4 texSize = vec4(1.0/_ScreenWidth, 1.0/_ScreenHeight, _ScreenWidth, _ScreenHeight);
+    
+    //设定Sobel算子，提取周边区域像素
     v_uv[0] = uv + texSize.xy * vec2(-1, -1);
     v_uv[1] = uv + texSize.xy * vec2(0, -1);
     v_uv[2] = uv + texSize.xy * vec2(1, -1);
@@ -118,8 +129,10 @@ CCProgram fs %{
   }
 
   vec4 frag () {
+    //通过Sobel算法进行边缘强度计算
     float edge = Sobel(inputTexture, v_uv);
-				
+
+    //根据外部配置的参数进行插值
     vec4 withEdgeColor = doLerp(_EdgeColor, texture(inputTexture, v_uv[4]), edge);
     vec4 onlyEdgeColor = doLerp(_EdgeColor, _BackgroundColor, edge);
     return doLerp(withEdgeColor, onlyEdgeColor, _EdgeOnly);
