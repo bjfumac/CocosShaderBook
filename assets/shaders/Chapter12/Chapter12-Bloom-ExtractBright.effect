@@ -1,0 +1,75 @@
+// Copyright (c) 2017-2020 Xiamen Yaji Software Co., Ltd.
+//注意：需要手动通过ts代码设定EdgeDetectionMat中的_ScreenWidth和_ScreenHeight为屏幕分辨率
+
+CCEffect %{
+  techniques:
+  - passes:
+    #模糊pass，unity中用两个pass，但是在cocos中写到一起只有第一个会生效，所以合并2个pass代码到一起，还能提高性能
+    - vert: vs:vert
+      frag: fs:frag
+      pass: post-process #后处理的专用pass类型
+      properties: &props
+        _LuminanceThreshold: { value: 0.0, editor: { slide: true, range: [0.0, 1.0], step: 0.1, type: float } }
+        #低版本的Opengl不支持类似Unity里的_MainTex_TexelSize，所以需要手动传分辨率
+        _ScreenWidth: { value: 1280.0 }
+        _ScreenHeight: { value: 720.0 }
+        
+
+}%
+
+CCProgram vs %{
+  precision highp float;
+  
+  #include <builtin/uniforms/cc-global>
+  #include <builtin/uniforms/cc-local>
+
+  in vec3 a_position;
+  in vec2 a_texCoord;
+
+  out vec2 v_uv;
+
+  uniform ConstantV {
+    float _ScreenWidth;
+    float _ScreenHeight;
+    
+  };
+
+  vec4 vert () {
+    //顶点处理比较省事，直接输出即可，无需变换空间
+    vec4 vertex = vec4(a_position, 1.0);
+    
+    v_uv = a_texCoord;
+
+
+    return vertex;
+  }
+
+}%
+
+
+
+CCProgram fs %{
+  precision highp float;
+
+  #include <legacy/output>
+  #include <../cc-cg>
+
+  in vec2 v_uv;
+
+  #pragma rate inputTexture pass
+  uniform sampler2D inputTexture;
+
+  uniform ConstantF {
+    float _LuminanceThreshold;
+  };
+
+  float luminance(vec4 color) {
+    return  0.2125 * color.r + 0.7154 * color.g + 0.0721 * color.b; 
+  }
+
+  vec4 frag () {
+    vec4 c = texture(inputTexture, v_uv);
+		float val = clamp(luminance(c) - _LuminanceThreshold, 0.0, 1.0);
+		return c * val;
+  }
+}%
