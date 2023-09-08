@@ -9,11 +9,7 @@ CCEffect %{
       pass: post-process #后处理的专用pass类型
       properties: &props
         _BlurSize: { value: 0.0, editor: { slide: true, range: [0.0, 8.0], step: 0.1, type: float } }
-        #低版本的Opengl不支持类似Unity里的_MainTex_TexelSize，所以需要手动传分辨率
-        _ScreenWidth: { value: 1280.0 }
-        _ScreenHeight: { value: 720.0 }
         
-
 }%
 
 CCProgram vs %{
@@ -28,8 +24,6 @@ CCProgram vs %{
   out vec2 v_uv[9];
 
   uniform ConstantV {
-    float _ScreenWidth;
-    float _ScreenHeight;
     float _BlurSize;
   };
 
@@ -40,7 +34,7 @@ CCProgram vs %{
     vec2 uv = a_texCoord;
     
     //unity中的_MainTex_TexelSize = Vector4(1 / width, 1 / height, width, height)
-    vec4 texSize = vec4(1.0/_ScreenWidth, 1.0/_ScreenHeight, _ScreenWidth, _ScreenHeight);
+    vec4 texSize = cc_screenSize.zwxy;;
     
     //高斯核卷积
     v_uv[0] = uv;

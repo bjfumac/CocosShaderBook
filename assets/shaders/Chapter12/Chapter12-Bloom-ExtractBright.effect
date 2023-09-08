@@ -9,11 +9,7 @@ CCEffect %{
       frag: fs:frag
       pass: post-process #后处理的专用pass类型
       properties: &props
-        _LuminanceThreshold: { value: 0.0, editor: { slide: true, range: [0.0, 1.0], step: 0.1, type: float } }
-        #低版本的Opengl不支持类似Unity里的_MainTex_TexelSize，所以需要手动传分辨率
-        _ScreenWidth: { value: 1280.0 }
-        _ScreenHeight: { value: 720.0 }
-        
+        _LuminanceThreshold: { value: 0.0, editor: { slide: true, range: [0.0, 1.0], step: 0.1, type: float } }    
 
 }%
 
@@ -27,12 +23,6 @@ CCProgram vs %{
   in vec2 a_texCoord;
 
   out vec2 v_uv;
-
-  uniform ConstantV {
-    float _ScreenWidth;
-    float _ScreenHeight;
-    
-  };
 
   vec4 vert () {
     //顶点处理比较省事，直接输出即可，无需变换空间

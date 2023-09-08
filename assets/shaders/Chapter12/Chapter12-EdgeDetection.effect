@@ -15,9 +15,6 @@ CCEffect %{
         _EdgeOnly: { value: 0.0, editor: { slide: true, range: [0.0, 1.0], step: 0.1, type: float } }
         _EdgeColor:      { value: [1, 1, 1, 1], editor: { type: color } }
         _BackgroundColor:      { value: [1, 1, 1, 1], editor: { type: color } }
-        #低版本的Opengl不支持类似Unity里的_MainTex_TexelSize，所以需要手动传分辨率
-        _ScreenWidth: { value: 1280.0 }
-        _ScreenHeight: { value: 720.0 }
 
 }%
 
@@ -33,10 +30,7 @@ CCProgram vs %{
 
   out vec2 v_uv[9];
 
-  uniform ConstantV {
-    float _ScreenWidth;
-    float _ScreenHeight;
-  };
+
 
   #pragma rate inputTexture pass
   uniform sampler2D inputTexture;
@@ -48,7 +42,7 @@ CCProgram vs %{
     vec2 uv = a_texCoord;
     
     //unity中的_MainTex_TexelSize = Vector4(1 / width, 1 / height, width, height)
-    vec4 texSize = vec4(1.0/_ScreenWidth, 1.0/_ScreenHeight, _ScreenWidth, _ScreenHeight);
+    vec4 texSize = cc_screenSize.zwxy;
     
     //设定Sobel算子，提取周边区域像素
     v_uv[0] = uv + texSize.xy * vec2(-1, -1);

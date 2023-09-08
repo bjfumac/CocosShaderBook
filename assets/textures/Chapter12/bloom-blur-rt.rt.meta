@@ -1,0 +1,40 @@
+{
+  "ver": "1.2.2",
+  "importer": "render-texture",
+  "imported": true,
+  "uuid": "9bb18040-826e-4a1a-a3c4-dc7a8903ecdc",
+  "files": [
+    ".json"
+  ],
+  "subMetas": {
+    "f9941": {
+      "importer": "rt-sprite-frame",
+      "uuid": "9bb18040-826e-4a1a-a3c4-dc7a8903ecdc@f9941",
+      "displayName": "bloom-blur-rt",
+      "id": "f9941",
+      "name": "spriteFrame",
+      "userData": {
+        "imageUuidOrDatabaseUri": "9bb18040-826e-4a1a-a3c4-dc7a8903ecdc",
+        "width": 1024,
+        "height": 1024
+      },
+      "ver": "1.0.0",
+      "imported": true,
+      "files": [
+        ".json"
+      ],
+      "subMetas": {}
+    }
+  },
+  "userData": {
+    "width": 1024,
+    "height": 1024,
+    "anisotropy": 0,
+    "minfilter": "linear",
+    "magfilter": "linear",
+    "mipfilter": "none",
+    "wrapModeS": "repeat",
+    "wrapModeT": "repeat",
+    "redirect": "9bb18040-826e-4a1a-a3c4-dc7a8903ecdc@f9941"
+  }
+}

@@ -25,8 +25,12 @@
   ],
   "_props": [
     {
-      "_MainTex": {
+      "_BlurTex": {
         "__uuid__": "9bb18040-826e-4a1a-a3c4-dc7a8903ecdc",
+        "__expectedType__": "cc.RenderTexture"
+      },
+      "_OriginalTex": {
+        "__uuid__": "aa190d0a-8414-45c2-bc7c-c45b16edee0c",
         "__expectedType__": "cc.RenderTexture"
       }
     }
