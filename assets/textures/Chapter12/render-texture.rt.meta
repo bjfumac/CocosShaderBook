@@ -1,0 +1,40 @@
+{
+  "ver": "1.2.2",
+  "importer": "render-texture",
+  "imported": true,
+  "uuid": "2ecd2051-eeb8-44f2-ba3a-2d48d030a2ee",
+  "files": [
+    ".json"
+  ],
+  "subMetas": {
+    "f9941": {
+      "importer": "rt-sprite-frame",
+      "uuid": "2ecd2051-eeb8-44f2-ba3a-2d48d030a2ee@f9941",
+      "displayName": "render-texture",
+      "id": "f9941",
+      "name": "spriteFrame",
+      "userData": {
+        "imageUuidOrDatabaseUri": "2ecd2051-eeb8-44f2-ba3a-2d48d030a2ee",
+        "width": 2048,
+        "height": 2048
+      },
+      "ver": "1.0.0",
+      "imported": true,
+      "files": [
+        ".json"
+      ],
+      "subMetas": {}
+    }
+  },
+  "userData": {
+    "width": 2048,
+    "height": 2048,
+    "anisotropy": 0,
+    "minfilter": "linear",
+    "magfilter": "linear",
+    "mipfilter": "none",
+    "wrapModeS": "repeat",
+    "wrapModeT": "repeat",
+    "redirect": "2ecd2051-eeb8-44f2-ba3a-2d48d030a2ee@f9941"
+  }
+}

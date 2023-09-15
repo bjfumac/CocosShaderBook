@@ -1,0 +1,73 @@
+// Copyright (c) 2017-2020 Xiamen Yaji Software Co., Ltd.
+//注意：需要手动通过ts代码设定EdgeDetectionMat中的_ScreenWidth和_ScreenHeight为屏幕分辨率
+CCEffect %{
+  techniques:
+  - passes:
+    #模糊pass，unity中用两个pass，但是在cocos中写到一起只有第一个会生效，所以合并2个pass代码到一起，还能提高性能
+    - vert: vs:vert
+      frag: fs-a:frag
+      rasterizerState:
+        cullMode: None
+      depthStencilState: 
+        depthFunc: less_equal
+        depthTest: true
+        depthWrite: false
+      blendState:
+        targets:
+        - blend: true
+          blendSrc: src_alpha
+          blendDst: one_minus_src_alpha
+          blendSrcAlpha: src_alpha
+          blendDstAlpha: one_minus_src_alpha
+          blendColorMask: rgb
+      pass: post-process #后处理的专用pass类型
+    
+       
+    
+       
+        
+}%
+
+CCProgram vs %{
+  precision highp float;
+  
+  #include <builtin/uniforms/cc-global>
+  #include <builtin/uniforms/cc-local>
+  #include <../cc-cg>
+
+  in vec3 a_position;
+  in vec2 a_texCoord;
+
+  out vec2 v_uv;
+
+  vec4 vert () {
+    //顶点处理比较省事，直接输出即可，无需变换空间
+    vec4 vertex = vec4(a_position, 1.0);
+
+    v_uv = a_texCoord;
+    
+    return vertex;
+  }
+
+}%
+
+CCProgram fs-a %{
+  precision highp float;
+
+  #include <legacy/output>
+  #include <../cc-cg>
+
+  in vec2 v_uv;
+  
+  //设置blit采样频率，见 https://docs.cocos.com/creator/manual/zh/render-pipeline/custom-pipeline.html
+  //inputTexture是cocos默认的blit截图，照抄即可
+  #pragma rate inputTexture pass
+  uniform sampler2D inputTexture;
+
+  vec4 frag () {
+    vec4 c = texture(inputTexture, v_uv);
+    return CCFragOutput(c);
+  }
+
+  
+}%

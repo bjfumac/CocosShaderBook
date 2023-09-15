@@ -845,7 +845,7 @@
   },
   {
     "__type__": "cc.Node",
-    "_name": "实现原理",
+    "_name": "实现原理 不确定是否完全正确",
     "_objFlags": 0,
     "__editorExtras__": {},
     "_parent": {
@@ -1069,47 +1069,6 @@
   },
   {
     "__type__": "cc.Node",
-    "_name": "这个原理是不是很简单？虽然操作复杂了一点",
-    "_objFlags": 0,
-    "__editorExtras__": {},
-    "_parent": {
-      "__id__": 25
-    },
-    "_children": [],
-    "_active": true,
-    "_components": [],
-    "_prefab": null,
-    "_lpos": {
-      "__type__": "cc.Vec3",
-      "x": 0,
-      "y": 0,
-      "z": 0
-    },
-    "_lrot": {
-      "__type__": "cc.Quat",
-      "x": 0,
-      "y": 0,
-      "z": 0,
-      "w": 1
-    },
-    "_lscale": {
-      "__type__": "cc.Vec3",
-      "x": 1,
-      "y": 1,
-      "z": 1
-    },
-    "_mobility": 0,
-    "_layer": 1073741824,
-    "_euler": {
-      "__type__": "cc.Vec3",
-      "x": 0,
-      "y": 0,
-      "z": 0
-    },
-    "_id": "c5kfv/14dG85u5OaR5yLuI"
-  },
-  {
-    "__type__": "cc.Node",
     "_name": "注意相机的mask和渲染优先级",
     "_objFlags": 0,
     "__editorExtras__": {},
@@ -1148,6 +1107,47 @@
       "z": 0
     },
     "_id": "e65Cv6mIpFUbd98hfYHGwI"
+  },
+  {
+    "__type__": "cc.Node",
+    "_name": "最终效果是否正确有待确认",
+    "_objFlags": 0,
+    "__editorExtras__": {},
+    "_parent": {
+      "__id__": 25
+    },
+    "_children": [],
+    "_active": true,
+    "_components": [],
+    "_prefab": null,
+    "_lpos": {
+      "__type__": "cc.Vec3",
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "_lrot": {
+      "__type__": "cc.Quat",
+      "x": 0,
+      "y": 0,
+      "z": 0,
+      "w": 1
+    },
+    "_lscale": {
+      "__type__": "cc.Vec3",
+      "x": 1,
+      "y": 1,
+      "z": 1
+    },
+    "_mobility": 0,
+    "_layer": 1073741824,
+    "_euler": {
+      "__type__": "cc.Vec3",
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "_id": "31VYWquDRE7LZ5+cuBPXdE"
   },
   {
     "__type__": "cc.SceneGlobals",
